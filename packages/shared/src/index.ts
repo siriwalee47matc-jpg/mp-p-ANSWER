@@ -24,6 +24,21 @@ export enum ProductType {
   NARCOTIC = 'NARCOTIC'
 }
 
+/** ระดับการจัดการความเสี่ยง (Multi-Level Risk Management) */
+export enum RiskLevel {
+  MANUAL = 'MANUAL',           // ตรวจเมื่อสั่งเท่านั้น
+  AUTO_DETECT = 'AUTO_DETECT', // สแกนและแจ้งเตือนอัตโนมัติ
+  AUTO_BLOCK = 'AUTO_BLOCK'    // ปิดกั้นอัตโนมัติเมื่อเสี่ยงสูง
+}
+
+/** สถานะการปิดกั้นเคส */
+export enum BlockStatus {
+  NONE = 'NONE',
+  BLOCKED = 'BLOCKED'
+}
+
+export type ReporterRole = 'CONSUMER' | 'INSPECTOR' | 'SYSTEM';
+
 export interface UserDto {
   id: number;
   email: string;
@@ -61,7 +76,7 @@ export interface CaseDto {
   evidenceImage?: string | null;
   evidenceText?: string | null;
   status: CaseStatus;
-  reporterRole: 'CONSUMER' | 'INSPECTOR';
+  reporterRole: ReporterRole;
   reporterId?: number | null;
   lawRulesConfirmed: LawRuleDto[];
   createdAt: string;
@@ -76,4 +91,23 @@ export interface AuditLogDto {
   action: string;
   details: string;
   createdAt: string;
+}
+
+/** Log สแกนจากระบบ Auto-Detect (SYSTEM reporter) */
+export interface RiskLogDto {
+  id: string;              // caseId
+  title: string;
+  url: string;
+  domain: string;
+  score: number;           // aiRiskScore
+  level: RiskLevel;        // riskLevel ที่ใช้ตอนสแกน
+  analysis: string;        // aiAnalysis
+  timestamp: string;       // createdAt
+  blockStatus: BlockStatus;
+}
+
+/** การตั้งค่าระบบส่วนกลาง */
+export interface GlobalConfigDto {
+  id: number;
+  riskLevel: RiskLevel;
 }
