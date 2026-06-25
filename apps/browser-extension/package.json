@@ -1,0 +1,24 @@
+{
+  "name": "browser-extension",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@kp-ads/shared": "*",
+    "recharts": "^2.9.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.263",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.4.3",
+    "vite": "^5.1.6"
+  }
+}

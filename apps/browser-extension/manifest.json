@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "SENTINEL ADs ssk",
+  "description": "Chrome extension that scans ads for false claims and provides AI analysis.",
+  "version": "1.0.0",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon-16.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icon-16.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "background": {
+    "service_worker": "src/background.ts"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.ts"],
+      "run_at": "document_idle"
+    }
+  ]
+}
