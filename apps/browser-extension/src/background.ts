@@ -112,7 +112,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     extensionMode: 'CONSUMER',
     autoScan: true,
-    riskLevel: 'MANUAL',
+    riskLevel: 'AUTO_DETECT',
     riskLogs: [],
     scanHistory: {},
     allowlistDomains: [],
@@ -121,22 +121,30 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.alarms.create('sync_domains_alarm', { periodInMinutes: 0.5 });
 chrome.alarms.create('sync_allowlist_alarm', { periodInMinutes: 2 });
-chrome.alarms.create('auto_scan_alarm', { periodInMinutes: 0.5 });
+
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'sync_domains_alarm') {
     syncBlockedDomains();
   } else if (alarm.name === 'sync_allowlist_alarm') {
     syncAllowlist();
-  } else if (alarm.name === 'auto_scan_alarm') {
-    runAutoScan();
   }
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url) {
     checkAndBlockTab(tabId, tab.url);
+    runAutoScanForTab(tab);
   }
+});
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  chrome.tabs.get(activeInfo.tabId, (tab) => {
+    if (tab && tab.url) {
+      checkAndBlockTab(activeInfo.tabId, tab.url);
+      runAutoScanForTab(tab);
+    }
+  });
 });
 
 async function checkAndBlockTab(tabId: number, urlStr: string) {
@@ -167,29 +175,26 @@ async function checkAndBlockTab(tabId: number, urlStr: string) {
   }
 }
 
-async function runAutoScan() {
+async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
   try {
-    const settings = await chrome.storage.local.get(['riskLevel']);
-    const riskLevel = settings.riskLevel || 'MANUAL';
-    if (riskLevel === 'MANUAL') return;
-
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    const activeTab = tabs[0];
     if (!activeTab || !activeTab.id || !activeTab.url) return;
     if (!shouldScanUrl(activeTab.url)) return;
 
     const hostname = normalizeDomain(activeTab.url);
-    const domainData = await chrome.storage.local.get(['blockedDomains', 'allowlistDomains', 'scanHistory']);
+    const domainData = await chrome.storage.local.get(['blockedDomains', 'allowlistDomains', 'scanHistory', 'riskLevel']);
     const blockedList = domainData.blockedDomains || [];
     if (blockedList.some((d: any) => d.domain === hostname)) return;
 
     const allowlistEntry = matchAllowlist(hostname, domainData.allowlistDomains || []);
     if (allowlistEntry?.action === 'SKIP_SCAN') return;
 
+    const riskLevel = domainData.riskLevel || 'AUTO_DETECT';
     const scanHistory = domainData.scanHistory || {};
     const historyKey = `${hostname}:${riskLevel}`;
     const now = Date.now();
-    if (now - (scanHistory[historyKey] || 0) < 3 * 60 * 1000) return;
+    
+    // Cache check: only scan if not scanned in last 1 minute to prevent rapid duplicate requests while browsing
+    if (now - (scanHistory[historyKey] || 0) < 1 * 60 * 1000) return;
 
     let pageSignals: any = null;
     try {
@@ -202,7 +207,7 @@ async function runAutoScan() {
             .slice(0, 10)
             .map((img) => [img.alt || '', img.title || '', img.getAttribute('aria-label') || '', img.src.split('/').pop() || ''].join(' '))
             .join(' | ');
-          const figcaptions = Array.from(document.querySelectorAll('figcaption, [data-testid*=\"caption\"], .caption'))
+          const figcaptions = Array.from(document.querySelectorAll('figcaption, [data-testid*="caption"], .caption'))
             .slice(0, 10)
             .map((node) => (node.textContent || '').trim())
             .join(' | ');
@@ -283,13 +288,11 @@ async function runAutoScan() {
     });
 
     if (score >= 50) {
-      const transparentPixel =
-        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
       chrome.notifications.create({
         type: 'basic',
-        iconUrl: transparentPixel,
-        title: `Ad Shield: risk ${score >= 80 ? 'high' : 'medium'}`,
-        message: `Risk score: ${score}% (Action: ${blockDecision.recommendedAction})\nURL: ${activeTab.url}`,
+        iconUrl: 'http://localhost:3000/sentinel-logo.jpg',
+        title: `🚨 Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
+        message: `พบโฆษณาอาจเข้าข่ายผิดกฎหมายบนหน้าเว็บ:\n${activeTab.title || activeTab.url}\nข้อแนะนำทางกฎหมาย: ${blockDecision.recommendedAction}`,
         priority: 2,
       });
     }
@@ -309,7 +312,7 @@ async function runAutoScan() {
       chrome.tabs
         .sendMessage(activeTab.id, {
           action: 'BLOCK_SCREEN',
-          reason: `Auto-blocked after confirmed high-risk signals (${score}%)`,
+          reason: `ระบบ Sentinel ADS ปิดกั้นการเข้าถึงอัตโนมัติ เนื่องจากพบโฆษณาสุขภาพผิดกฎหมายที่มีระดับความเสี่ยงสูงมาก (${score}%)`,
         })
         .catch((err) => {
           console.log('Failed to send block message to content script:', err);
@@ -319,6 +322,7 @@ async function runAutoScan() {
     console.error('Background auto-scan error:', err);
   }
 }
+
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === 'SYNC_NOW') {

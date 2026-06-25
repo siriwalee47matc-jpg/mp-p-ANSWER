@@ -598,6 +598,11 @@ function Popup() {
     </div>
   ) : null;
 
+  // Determine risk details
+  const currentRiskScore = aiAnalysisResult?.aiRiskScore || 0;
+  const riskFillClass = currentRiskScore >= 80 ? 'high' : currentRiskScore >= 50 ? 'medium' : 'low';
+  const riskBadgeClass = currentRiskScore >= 80 ? 'high' : currentRiskScore >= 50 ? 'medium' : 'low';
+
   return (
     <div className={`popup-container ${showDetails && aiAnalysisResult ? 'has-results' : ''} ${riskThemeClass}`}>
       {/* Main Panel: Browser Control Panel */}
@@ -610,14 +615,14 @@ function Popup() {
                 <div className="radar-circle c2"></div>
                 <div className="radar-circle c3"></div>
                 <div className="radar-sweep"></div>
-                <div className="radar-shield">🛡️</div>
+                <img src="logo.png" alt="Sentinel Ads Logo" className="radar-logo" />
               </div>
               <div className="radar-steps-list">
                 {AI_STEPS.map((stepText, idx) => {
                   const isDone = scanStepIndex > idx;
                   const isActive = scanStepIndex === idx;
                   return (
-                    <div key={idx} className={`radar-step-item ${isDone ? '' : (isActive ? 'active' : 'pending')}`} style={isActive ? { color: '#a78bfa' } : {}}>
+                    <div key={idx} className={`radar-step-item ${isDone ? '' : (isActive ? 'active' : 'pending')}`} style={isActive ? { color: '#b91c1c' } : {}}>
                       <span className="radar-step-icon">
                         {isDone ? '✅' : (isActive ? '🔄' : '⏳')}
                       </span>
@@ -629,103 +634,61 @@ function Popup() {
             </div>
           )}
 
-          <div className="shield-logo-dual">🛡️</div>
           <div className="popup-header">
-            <h1 className="title">SENTINEL ADS</h1>
+            <div className="header-brand">
+              <img src="logo.png" alt="Sentinel Ads Logo" className="branding-logo" />
+              <div className="header-text">
+                <h1 className="title">SENTINEL ADS</h1>
+                <span className="subtitle">ระบบเฝ้าระวังโฆษณา กระทรวงสาธารณสุข</span>
+              </div>
+            </div>
             <button 
-              className={`settings-btn ${showSettings ? 'active' : ''}`} 
+              className="settings-btn" 
               onClick={() => setShowSettings(!showSettings)} 
-              title="ตั้งค่าการทำงาน"
+              title="ตั้งค่า (Settings)"
+              type="button"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
+              ⚙️
             </button>
           </div>
 
+          <div className="status-indicator-container">
+            <div className={`status-badge ${riskLevel !== 'MANUAL' ? 'status-active' : 'status-standby'}`}>
+              <span className="status-dot"></span>
+              <span className="status-text">
+                {riskLevel !== 'MANUAL' 
+                  ? '🟢 เฝ้าระวังอัตโนมัติ (Auto-Scanning Active)' 
+                  : '🔵 พร้อมสแกนตรวจสอบ (System Standby)'}
+              </span>
+            </div>
+          </div>
+
           {showSettings && (
-            <div className="settings-panel animate-slide-down" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <h3 className="panel-title" style={{ fontSize: '0.82rem', color: '#12100e', marginBottom: '4px', fontWeight: 'bold' }}>
-                ⚙️ การตั้งค่าระบบป้องกันอัจฉริยะ
-              </h3>
-              
-              {/* Block Level Selector with glow badge */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label className="panel-label" style={{ fontSize: '0.75rem' }}>ระดับการปิดกั้นโฆษณา:</label>
-                <span className={`block-level-badge ${blockLevel.toLowerCase()}`}>
-                  🛡️ {blockLevel === 'NORMAL' ? 'Normal' : blockLevel === 'MEDIUM' ? 'Medium' : 'Strict'}
-                </span>
-              </div>
-              <div className="mode-toggle" style={{ padding: '2px' }}>
-                <button className={blockLevel === 'NORMAL' ? 'active' : ''} style={{ fontSize: '0.7rem', padding: '4px 0' }} onClick={() => setBlockLevel('NORMAL')}>Normal</button>
-                <button className={blockLevel === 'MEDIUM' ? 'active' : ''} style={{ fontSize: '0.7rem', padding: '4px 0' }} onClick={() => setBlockLevel('MEDIUM')}>Medium</button>
-                <button className={blockLevel === 'STRICT' ? 'active' : ''} style={{ fontSize: '0.7rem', padding: '4px 0' }} onClick={() => setBlockLevel('STRICT')}>Strict</button>
-              </div>
-
-              {/* AI Model Config */}
-              <div style={{ marginTop: '4px' }}>
-                <label className="panel-label" style={{ fontSize: '0.75rem', display: 'block', marginBottom: '4px' }}>🤖 การทำงานของ Ad Shield AI Models:</label>
-                <div className="model-config-list">
-                  <div className="model-config-item">
-                    <span className="model-config-name">Llama-3 (Reasoning Core)</span>
-                    <span className="model-config-status"><span className="status-dot"></span>Active</span>
-                  </div>
-                  <div className="model-config-item">
-                    <span className="model-config-name">OCR-v2 (Text & Image Parser)</span>
-                    <span className="model-config-status"><span className="status-dot"></span>Active</span>
-                  </div>
-                  <div className="model-config-item">
-                    <span className="model-config-name">Reg-Matcher (Law Matching)</span>
-                    <span className="model-config-status"><span className="status-dot"></span>Active</span>
-                  </div>
-                  <div className="model-config-item">
-                    <span className="model-config-name">Threat-v3 (OSINT Reputation)</span>
-                    <span className="model-config-status"><span className="status-dot"></span>Active</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Platform Support badges */}
-              <div style={{ marginTop: '4px' }}>
-                <label className="panel-label" style={{ fontSize: '0.75rem', display: 'block', marginBottom: '4px' }}>📱 Platform Support Status:</label>
-                <div className="platform-grid">
-                  <div className="platform-badge active">
-                    <span>🖥️</span>
-                    <span>Web</span>
-                  </div>
-                  <div className="platform-badge active">
-                    <span>🤖</span>
-                    <span>Android</span>
-                  </div>
-                  <div className="platform-badge active">
-                    <span>🍎</span>
-                    <span>iOS</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Risk Level setting (auto-scan / auto-block selector) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                <label className="panel-label" htmlFor="riskLevelSelector" style={{ fontSize: '0.75rem' }}>
-                  โหมดคัดกรองหน้าเว็บ:
-                </label>
-                <select
-                  id="riskLevelSelector"
+            <div className="settings-panel animate-slide-down">
+              <h3 className="section-title">⚙️ ตั้งค่าส่วนขยาย (Extension Settings)</h3>
+              <div className="input-group">
+                <label className="panel-label">ระดับการจัดการความเสี่ยง (Risk Handling):</label>
+                <select 
                   className="panel-input"
-                  style={{ padding: '6px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#12100e', fontSize: '0.75rem' }}
-                  value={riskLevel}
+                  value={riskLevel} 
                   onChange={(e) => handleRiskLevelChange(e.target.value as any)}
                 >
-                  <option value="MANUAL">Manual Check (ตรวจเมื่อสั่งเท่านั้น)</option>
-                  <option value="AUTO_DETECT">Auto Detect (สแกนแจ้งเตือนอัตโนมัติ)</option>
-                  <option value="AUTO_BLOCK">Auto Block (ปิดกั้นโฆษณาอันตรายทันที)</option>
+                  <option value="MANUAL">Manual Check (ตรวจจับแบบปกติ)</option>
+                  <option value="AUTO_DETECT">Auto Detect & Report (สแกนและส่งรายงานอัตโนมัติ)</option>
+                  <option value="AUTO_BLOCK">Auto Block & Protect (บล็อกหน้าเว็บเสี่ยงสูงอัตโนมัติ)</option>
                 </select>
-                <div style={{ fontSize: '0.65rem', color: '#12100e', fontWeight: 'bold', marginTop: '2px', lineHeight: '1.3' }}>
-                  {riskLevel === 'MANUAL' && '🟢 สแกนวิเคราะห์เมื่อผู้ใช้กดปุ่มโดยตรง'}
-                  {riskLevel === 'AUTO_DETECT' && '🔵 สแกนและเตือนเมื่อพบความเสี่ยง >= 50%'}
-                  {riskLevel === 'AUTO_BLOCK' && '🔴 ปิดกั้นการเข้าถึงเว็บทันทีเมื่อเสี่ยง >= 80%'}
-                </div>
+              </div>
+              <div className="input-group" style={{ marginTop: '8px' }}>
+                <label className="panel-label">ระดับการบล็อกโฆษณา (Block Sensitivity):</label>
+                <select 
+                  className="panel-input"
+                  value={blockLevel} 
+                  onChange={(e) => setBlockLevel(e.target.value as any)}
+                >
+                  <option value="NORMAL">Normal (ทั่วไป)</option>
+                  <option value="MEDIUM">Medium (ปานกลาง)</option>
+                  <option value="STRICT">Strict (เข้มงวด)</option>
+                </select>
               </div>
             </div>
           )}
@@ -808,18 +771,39 @@ function Popup() {
           {message && <div className={`alert ${message.type}`}>{message.text}</div>}
 
           <div className="risk-bar">
-            <span className="risk-label">ความเสี่ยง</span>
-            <div className="risk-track"><div className="risk-fill" style={{ width: aiAnalysisResult ? `${aiAnalysisResult.aiRiskScore}%` : '0%' }}></div></div>
-            <span className="risk-score">{aiAnalysisResult ? getRiskLevelText(aiAnalysisResult.aiRiskScore) : 'ไม่มีความเสี่ยง (0%)'}</span>
+            <span className="risk-label">ระดับความเสี่ยง:</span>
+            <div className="risk-track">
+              <div 
+                className={`risk-fill ${riskFillClass}`} 
+                style={{ width: `${currentRiskScore}%` }}
+              ></div>
+            </div>
+            <span className={`risk-score-badge-label ${riskBadgeClass}`}>
+              {aiAnalysisResult ? getRiskLevelText(currentRiskScore) : 'ไม่มีความเสี่ยง (0%)'}
+            </span>
           </div>
 
-          <button className={`btn-primary ${!loading ? 'pulse-button' : ''}`} onClick={() => { if (mode === 'CONSUMER') { runRadarScan(handleConsumerScan); } else { runRadarScan(handleOfficerScan); } }} disabled={loading}>
+          <button 
+            className={`btn-primary ${!loading ? 'pulse-button' : ''}`} 
+            onClick={() => { 
+              if (mode === 'CONSUMER') { 
+                runRadarScan(handleConsumerScan); 
+              } else { 
+                runRadarScan(handleOfficerScan); 
+              } 
+            }} 
+            disabled={loading}
+          >
             {loading ? (
               <>
-                <span className="loader-spinner" style={{ marginRight: '8px' }}></span>
-                กำลังวิเคราะห์...
+                <span className="loader-spinner"></span>
+                <span>กำลังวิเคราะห์ระบบ...</span>
               </>
-            ) : '⚡ สแกนเดี๋ยวนี้'}
+            ) : (
+              <>
+                <span>🔍 เริ่มสแกนวิเคราะห์หน้าเว็บนี้ (Scan Now)</span>
+              </>
+            )}
           </button>
 
           {/* Officer Mode Custom Scan Section & Session Control */}
@@ -965,11 +949,14 @@ function Popup() {
           </div>
           
           <div className="risk-bar" style={{ marginTop: '4px', gap: '6px' }}>
-            <span className="risk-label" style={{ fontSize: '0.78rem' }}>ความเสี่ยง:</span>
-            <div className="risk-track" style={{ height: '8px' }}>
-              <div className="risk-fill" style={{ width: `${aiAnalysisResult.aiRiskScore || 0}%` }}></div>
+            <span className="risk-label" style={{ fontSize: '0.78rem' }}>ระดับความเสี่ยง:</span>
+            <div className="risk-track" style={{ height: '10px' }}>
+              <div 
+                className={`risk-fill ${aiAnalysisResult.aiRiskScore >= 80 ? 'high' : aiAnalysisResult.aiRiskScore >= 50 ? 'medium' : 'low'}`} 
+                style={{ width: `${aiAnalysisResult.aiRiskScore || 0}%` }}
+              ></div>
             </div>
-            <span className="risk-score" style={{ fontWeight: 'bold', fontSize: '0.78rem' }}>
+            <span className={`risk-score-badge-label ${aiAnalysisResult.aiRiskScore >= 80 ? 'high' : aiAnalysisResult.aiRiskScore >= 50 ? 'medium' : 'low'}`} style={{ fontSize: '0.74rem' }}>
               {getRiskLevelText(aiAnalysisResult.aiRiskScore || 0)}
             </span>
           </div>
