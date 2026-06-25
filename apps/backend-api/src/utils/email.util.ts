@@ -29,6 +29,9 @@ export class EmailUtil {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
+        tls: {
+          rejectUnauthorized: false,
+        },
       });
       console.log(`[EmailUtil] Using SMTP provider: ${process.env.SMTP_HOST}`);
     } else if (provider === 'resend') {
@@ -40,6 +43,9 @@ export class EmailUtil {
         auth: {
           user: 'resend',
           pass: process.env.RESEND_API_KEY,
+        },
+        tls: {
+          rejectUnauthorized: false,
         },
       });
       console.log('[EmailUtil] Using Resend provider');
@@ -53,6 +59,9 @@ export class EmailUtil {
           auth: {
             user: account.user,
             pass: account.pass,
+          },
+          tls: {
+            rejectUnauthorized: false,
           },
         });
         console.log('[EmailUtil] Ethereal test account created. Preview emails at https://ethereal.email');
