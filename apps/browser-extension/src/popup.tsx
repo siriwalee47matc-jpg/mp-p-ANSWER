@@ -559,7 +559,7 @@ function Popup() {
 
           <div className="shield-logo-dual">🛡️</div>
           <div className="popup-header">
-            <h1 className="title">SENTINEL ADs ssk</h1>
+            <h1 className="title">SENTINEL ADS</h1>
             <button 
               className={`settings-btn ${showSettings ? 'active' : ''}`} 
               onClick={() => setShowSettings(!showSettings)} 
