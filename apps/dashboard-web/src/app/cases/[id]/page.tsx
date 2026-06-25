@@ -550,23 +550,22 @@ export default function CaseDetailPage() {
                           width: '8px',
                           height: '8px',
                           borderRadius: '50%',
-                          background: item.licenseStatus === 'VALID' ? 'var(--color-success)' : 'var(--color-danger)'
+                          background: item.licenseStatus === 'VALID' ? 'var(--color-success)' : item.licenseStatus === 'INVALID' ? 'var(--color-danger)' : 'var(--color-warning)'
                         }}></span>
                         <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                          {item.licenseStatus === 'VALID' ? 'อนุญาตถูกต้อง' : 
-                           item.licenseStatus === 'INVALID' ? 'ใบอนุญาตหมดอายุ/ยกเลิก' : 'ไม่พบข้อมูลในระบบ'}
+                          {item.licenseStatus === 'VALID' ? 'Verified valid' : item.licenseStatus === 'INVALID' ? 'Invalid or expired' : item.licenseStatus === 'CHECK_OFFICIAL_SOURCE' ? 'Check official source' : 'Not shown on page'}
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>เช็คผ่าน Oryor API Portal</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Cross-check with official FDA and OSINT sources</div>
                     </div>
 
                     <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '0.75rem', borderRadius: '8px' }}>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>ผู้จดโดเมน (Registrant)</div>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        👤 {item.whoisInfo?.registrantName || 'ไม่พบข้อมูล'}
+                        👤 {whois?.domainRdap?.registrant || whois?.domain || '???????????'}
                       </div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                        จดผ่าน: {item.whoisInfo?.registrar || 'N/A'}
+                        จดผ่าน: {whois?.domainRdap?.registrar || whois?.domainRdap?.rdapServer || 'N/A'}
                       </div>
                     </div>
                   </div>

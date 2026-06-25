@@ -1,7 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import BrandMark from './BrandMark';
+
+const roleLabels: Record<string, string> = {
+  ADMIN: 'Administrator',
+  REVIEWER: 'Reviewer',
+  LEGAL_OFFICER: 'Legal Officer',
+  INSPECTOR: 'Inspector',
+  EXECUTIVE: 'Executive',
+};
+
+const navigation = [
+  { href: '/cases', label: 'คดีและหลักฐาน', roles: ['INSPECTOR', 'LEGAL_OFFICER', 'REVIEWER', 'ADMIN', 'EXECUTIVE'] },
+  { href: '/dashboard', label: 'ภาพรวมระบบ', roles: ['EXECUTIVE', 'ADMIN', 'REVIEWER'] },
+  { href: '/audit', label: 'Audit Trail', roles: ['ADMIN', 'EXECUTIVE'] },
+  { href: '/risk-logs', label: 'Risk Logs', roles: ['ADMIN', 'REVIEWER', 'INSPECTOR'] },
+  { href: '/settings', label: 'Control Room', roles: ['ADMIN', 'REVIEWER'] },
+];
 
 export default function Header() {
   const router = useRouter();
@@ -11,15 +28,17 @@ export default function Header() {
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     const token = localStorage.getItem('token');
+
     if (!userStr || !token) {
       router.push('/');
-    } else {
-      try {
-        setUser(JSON.parse(userStr));
-      } catch (e) {
-        localStorage.clear();
-        router.push('/');
-      }
+      return;
+    }
+
+    try {
+      setUser(JSON.parse(userStr));
+    } catch {
+      localStorage.clear();
+      router.push('/');
     }
   }, [router]);
 
@@ -31,114 +50,37 @@ export default function Header() {
   if (!user) return null;
 
   return (
-    <header className="header flex justify-between align-center">
-      <div className="logo-container">
-        <div className="logo-icon">🛡️</div>
-        <span>SENTINEL ADS</span>
-      </div>
+    <header className="header">
+      <div className="header__inner">
+        <BrandMark compact />
 
-      <nav className="flex align-center gap-3">
-        {(user.role === 'INSPECTOR' || user.role === 'LEGAL_OFFICER' || user.role === 'REVIEWER' || user.role === 'ADMIN' || user.role === 'EXECUTIVE') && (
-          <a
-            href="/cases"
-            style={{
-              fontWeight: 500,
-              fontSize: '0.95rem',
-              color: pathname === '/cases' ? 'var(--color-primary)' : 'var(--text-muted)',
-              borderBottom: pathname === '/cases' ? '2px solid var(--color-primary)' : 'none',
-              paddingBottom: '0.25rem',
-            }}
-          >
-            📋 รายการคดีความ
-          </a>
-        )}
+        <nav className="header__nav">
+          {navigation
+            .filter((item) => item.roles.includes(user.role))
+            .map((item) => {
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <a key={item.href} href={item.href} className={`header__nav-link ${active ? 'active' : ''}`}>
+                  {item.label}
+                </a>
+              );
+            })}
+        </nav>
 
-        {(user.role === 'EXECUTIVE' || user.role === 'ADMIN' || user.role === 'REVIEWER') && (
-          <a
-            href="/dashboard"
-            style={{
-              fontWeight: 500,
-              fontSize: '0.95rem',
-              color: pathname === '/dashboard' ? 'var(--color-primary)' : 'var(--text-muted)',
-              borderBottom: pathname === '/dashboard' ? '2px solid var(--color-primary)' : 'none',
-              paddingBottom: '0.25rem',
-            }}
-          >
-            📊 แดชบอร์ดสถิติ
-          </a>
-        )}
-
-        {(user.role === 'ADMIN' || user.role === 'EXECUTIVE') && (
-          <a
-            href="/audit"
-            style={{
-              fontWeight: 500,
-              fontSize: '0.95rem',
-              color: pathname === '/audit' ? 'var(--color-primary)' : 'var(--text-muted)',
-              borderBottom: pathname === '/audit' ? '2px solid var(--color-primary)' : 'none',
-              paddingBottom: '0.25rem',
-            }}
-          >
-            🔍 บันทึกประวัติ (Audit)
-          </a>
-        )}
-
-        {(user.role === 'ADMIN' || user.role === 'REVIEWER' || user.role === 'INSPECTOR') && (
-          <a
-            href="/risk-logs"
-            style={{
-              fontWeight: 500,
-              fontSize: '0.95rem',
-              color: pathname === '/risk-logs' ? 'var(--color-primary)' : 'var(--text-muted)',
-              borderBottom: pathname === '/risk-logs' ? '2px solid var(--color-primary)' : 'none',
-              paddingBottom: '0.25rem',
-            }}
-          >
-            🤖 Risk Logs
-          </a>
-        )}
-
-        {(user.role === 'ADMIN' || user.role === 'REVIEWER') && (
-          <a
-            href="/settings"
-            style={{
-              fontWeight: 500,
-              fontSize: '0.95rem',
-              color: pathname === '/settings' ? 'var(--color-primary)' : 'var(--text-muted)',
-              borderBottom: pathname === '/settings' ? '2px solid var(--color-primary)' : 'none',
-              paddingBottom: '0.25rem',
-            }}
-          >
-            ⚙️ ตั้งค่า
-          </a>
-        )}
-      </nav>
-
-      <div className="flex align-center gap-3">
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{user.name}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            สิทธิ์: <span style={{
-              color: user.role === 'ADMIN' ? '#db2777' : 
-                     user.role === 'REVIEWER' ? '#7c3aed' : 
-                     user.role === 'LEGAL_OFFICER' ? '#1e3a8a' : 
-                     user.role === 'EXECUTIVE' ? '#047857' : 'var(--text-main)',
-              fontWeight: 700
-            }}>{user.role}</span>
+        <div className="header__user">
+          <div className="header__user-copy">
+            <div className="header__user-name">{user.name}</div>
+            <div className="header__user-role">{roleLabels[user.role] || user.role}</div>
           </div>
+          <div className="header__user-badge">Live Ops</div>
+          <button
+            onClick={handleLogout}
+            className="btn btn-secondary"
+            style={{ padding: '0.55rem 1rem', fontSize: '0.82rem' }}
+          >
+            ออกจากระบบ
+          </button>
         </div>
-        
-        <button
-          onClick={handleLogout}
-          className="btn btn-secondary"
-          style={{
-            padding: '0.4rem 0.8rem',
-            fontSize: '0.8rem',
-            borderRadius: '6px'
-          }}
-        >
-          ออกจากระบบ 🚪
-        </button>
       </div>
     </header>
   );

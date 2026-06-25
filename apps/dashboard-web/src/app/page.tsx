@@ -1,7 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import BrandMark from '../components/BrandMark';
+
+const presetAccounts = [
+  { label: 'Inspector', email: 'inspector@fda.go.th' },
+  { label: 'Legal', email: 'legal@fda.go.th' },
+  { label: 'Reviewer', email: 'reviewer@fda.go.th' },
+  { label: 'Executive', email: 'executive@fda.go.th' },
+  { label: 'Admin', email: 'admin@fda.go.th' },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,38 +19,30 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Check if already logged in
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        redirectUser(user.role);
-      } catch (e) {
-        localStorage.clear();
-      }
-    }
-  }, []);
 
-  const redirectUser = (role: string) => {
-    if (role === 'EXECUTIVE') {
-      router.push('/dashboard');
-    } else {
-      router.push('/cases');
-    }
-  };
+    if (!token || !userStr) return;
 
-  const handleLogin = async (e?: React.FormEvent, presetEmail?: string, presetPassword?: string) => {
-    if (e) e.preventDefault();
-    setError('');
+    try {
+      const user = JSON.parse(userStr);
+      router.push(user.role === 'EXECUTIVE' ? '/dashboard' : '/cases');
+    } catch {
+      localStorage.clear();
+    }
+  }, [router]);
+
+  const handleLogin = async (e?: React.FormEvent, presetEmail?: string) => {
+    e?.preventDefault();
     setLoading(true);
+    setError('');
 
     const loginEmail = presetEmail || email;
-    const loginPassword = presetPassword || password || 'password123';
+    const loginPassword = password || 'password123';
 
     if (!loginEmail) {
-      setError('กรุณากรอกอีเมล');
+      setError('กรุณากรอกอีเมลเจ้าหน้าที่');
       setLoading(false);
       return;
     }
@@ -49,141 +50,126 @@ export default function LoginPage() {
     try {
       const res = await fetch('http://localhost:3001/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'การเข้าสู่ระบบล้มเหลว');
-      }
+      if (!res.ok) throw new Error(data.message || 'ไม่สามารถเข้าสู่ระบบได้');
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-
-      // Trigger redirection
-      redirectUser(data.user.role);
+      router.push(data.user.role === 'EXECUTIVE' ? '/dashboard' : '/cases');
     } catch (err: any) {
-      setError(err.message || 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์หลังบ้านได้');
+      setError(err.message || 'ไม่สามารถเชื่อมต่อกับระบบหลังบ้านได้');
     } finally {
       setLoading(false);
     }
   };
 
-  const loginAsPreset = (presetEmail: string) => {
-    setEmail(presetEmail);
-    setPassword('password123');
-    handleLogin(undefined, presetEmail, 'password123');
-  };
-
   return (
-    <div style={{
-      display: 'flex',
-      minHeight: '100vh',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '1.5rem',
-      position: 'relative'
-    }}>
-      <div className="card" style={{ maxWidth: '450px', width: '100%', padding: '2.5rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '64px',
-            height: '64px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
-            fontSize: '2rem',
-            color: '#fff',
-            marginBottom: '1rem',
-            boxShadow: '0 0 20px rgba(127, 29, 29, 0.35)'
-          }}>
-            🛡️
+    <main className="login-shell">
+      <section className="login-shell__hero">
+        <div className="orb orb--emerald" />
+        <div className="orb orb--cyan" />
+        <div className="grid-beam" />
+        <div className="hero-panel">
+          <BrandMark />
+          <div className="hero-panel__text">
+            <span className="hero-chip">Illegal Ad Intelligence Platform</span>
+            <h1>ศูนย์ควบคุมการเฝ้าระวังโฆษณาสุขภาพผิดกฎหมาย</h1>
+            <p>
+              แพลตฟอร์มสำหรับล็อกเคส, วิเคราะห์ความเสี่ยงด้วย AI, สรุปรายงาน, ตรวจเส้นทางผู้กระทำผิด
+              และส่งต่อให้สายกฎหมายดำเนินการใน workflow เดียว
+            </p>
           </div>
-          <h1 style={{ fontSize: '1.75rem', marginBottom: '0.25rem' }}>SENTINEL ADs ssk</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ระบบพิจารณาดำเนินคดีโฆษณาสุขภาพผิดกฎหมาย</p>
+
+          <div className="hero-stats">
+            <div className="hero-stat-card">
+              <span>01</span>
+              <strong>Live Risk Logging</strong>
+              <p>รับข้อมูลจากหน้าเว็บและ extension เข้าคิวคดีแบบเรียลไทม์</p>
+            </div>
+            <div className="hero-stat-card">
+              <span>02</span>
+              <strong>AI + Law Assist</strong>
+              <p>วิเคราะห์ข้อความโฆษณาและจับคู่มาตรากฎหมายที่เกี่ยวข้อง</p>
+            </div>
+            <div className="hero-stat-card">
+              <span>03</span>
+              <strong>Command Dashboard</strong>
+              <p>บริหารเคส, blacklist, audit trail และ global risk mode จากจุดเดียว</p>
+            </div>
+          </div>
         </div>
+      </section>
 
-        {error && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '8px',
-            color: 'var(--color-danger)',
-            padding: '0.75rem 1rem',
-            fontSize: '0.9rem',
-            marginBottom: '1.5rem'
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin}>
-          <div className="form-group">
-            <label htmlFor="email">อีเมลเจ้าหน้าที่</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="name@fda.go.th"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              required
-            />
+      <section className="login-shell__panel">
+        <div className="login-panel card">
+          <div className="login-panel__header">
+            <span className="hero-chip">Secure Officer Access</span>
+            <h2>เข้าสู่ระบบปฏิบัติการ</h2>
+            <p>สำหรับเจ้าหน้าที่ตรวจสอบ, นิติกร, ผู้ทบทวน และผู้บริหาร</p>
           </div>
 
-          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-            <label htmlFor="password">รหัสผ่าน</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              required
-            />
+          {error && <div className="alert alert-error">{error}</div>}
+
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label htmlFor="email">อีเมล</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="name@fda.go.th"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">รหัสผ่าน</label>
+              <input
+                id="password"
+                type="password"
+                placeholder="password123"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary login-panel__submit" disabled={loading}>
+              {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ Control Center'}
+            </button>
+          </form>
+
+          <div className="login-panel__divider">
+            <span>บัญชีทดสอบด่วน</span>
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.85rem' }} disabled={loading}>
-            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ 🔑'}
-          </button>
-        </form>
+          <div className="preset-grid">
+            {presetAccounts.map((account) => (
+              <button
+                key={account.email}
+                onClick={() => {
+                  setEmail(account.email);
+                  setPassword('password123');
+                  handleLogin(undefined, account.email);
+                }}
+                className="btn btn-secondary"
+                disabled={loading}
+              >
+                {account.label}
+              </button>
+            ))}
+          </div>
 
-        <div style={{ margin: '1.5rem 0', textAlign: 'center', position: 'relative' }}>
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)' }} />
-          <span style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'var(--bg-main)',
-            padding: '0 0.75rem',
-            fontSize: '0.8rem',
-            color: 'var(--text-muted)'
-          }}>หรือเลือกบัญชีทดสอบด่วน</span>
+          <div className="login-panel__note">
+            ใช้ seed data มาตรฐาน: รหัสผ่านเริ่มต้นคือ <code>password123</code>
+          </div>
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-          <button onClick={() => loginAsPreset('inspector@fda.go.th')} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
-            ตรวจสืบ (Inspector)
-          </button>
-          <button onClick={() => loginAsPreset('legal@fda.go.th')} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
-            นิติกร (Legal)
-          </button>
-          <button onClick={() => loginAsPreset('reviewer@fda.go.th')} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
-            หัวหน้า (Reviewer)
-          </button>
-          <button onClick={() => loginAsPreset('executive@fda.go.th')} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.5rem' }}>
-            ผู้บริหาร (Executive)
-          </button>
-        </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

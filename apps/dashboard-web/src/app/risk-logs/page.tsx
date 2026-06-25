@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 
@@ -17,16 +17,16 @@ interface RiskLog {
   blockLogs?: any[];
 }
 
-function getRiskClass(score: number) {
+function getRiskLabel(score: number) {
+  if (score >= 80) return 'High Critical';
+  if (score >= 50) return 'Elevated';
+  return 'Low Signal';
+}
+
+function getRiskColor(score: number) {
   if (score >= 80) return '#dc2626';
   if (score >= 50) return '#d97706';
   return '#16a34a';
-}
-
-function getRiskLabel(score: number) {
-  if (score >= 80) return 'สูงมาก 🔴';
-  if (score >= 50) return 'ปานกลาง 🟡';
-  return 'ต่ำ 🟢';
 }
 
 export default function RiskLogsPage() {
@@ -44,15 +44,15 @@ export default function RiskLogsPage() {
       router.push('/');
       return;
     }
+
     try {
       const res = await fetch('http://localhost:3001/risk/logs', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูล risk logs ได้');
-      const data = await res.json();
-      setLogs(data);
+      setLogs(await res.json());
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาด');
+      setError(err.message || 'เกิดข้อผิดพลาดในการโหลด risk stream');
     } finally {
       setLoading(false);
     }
@@ -62,145 +62,199 @@ export default function RiskLogsPage() {
     fetchLogs();
   }, [fetchLogs]);
 
-  const filteredLogs = logs.filter((log) => {
-    const score = log.aiRiskScore ?? 0;
-    if (filter === 'HIGH') return score >= 80;
-    if (filter === 'MEDIUM') return score >= 50 && score < 80;
-    if (filter === 'LOW') return score < 50;
-    return true;
-  });
+  const filteredLogs = useMemo(
+    () =>
+      logs.filter((log) => {
+        const score = log.aiRiskScore ?? 0;
+        if (filter === 'HIGH') return score >= 80;
+        if (filter === 'MEDIUM') return score >= 50 && score < 80;
+        if (filter === 'LOW') return score < 50;
+        return true;
+      }),
+    [filter, logs],
+  );
+
+  const overview = useMemo(
+    () => ({
+      total: logs.length,
+      high: logs.filter((item) => (item.aiRiskScore ?? 0) >= 80).length,
+      medium: logs.filter((item) => {
+        const score = item.aiRiskScore ?? 0;
+        return score >= 50 && score < 80;
+      }).length,
+      low: logs.filter((item) => (item.aiRiskScore ?? 0) < 50).length,
+    }),
+    [logs],
+  );
 
   return (
     <div>
       <Header />
       <main className="container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>
-              🤖 Risk Log – ประวัติการสแกนอัตโนมัติ
-            </h1>
-            <p style={{ color: 'var(--text-muted)' }}>
-              แสดงผลการสแกนจากระบบ Auto-Detect และ Auto-Block ของส่วนขยายเบราว์เซอร์
+        <section className="command-grid command-grid--hero" style={{ marginBottom: '1.25rem' }}>
+          <div className="card command-hero">
+            <span className="command-hero__eyebrow">Auto Detection Stream</span>
+            <h1 className="command-hero__title">Risk Logs Command Stream</h1>
+            <p className="command-hero__description">
+              ศูนย์รวมสัญญาณจากการสแกนโฆษณาอัตโนมัติ ใช้ดูแนวโน้มความเสี่ยง, ความหนาแน่นของเหตุการณ์,
+              และเคสที่ควรเร่งปฏิบัติการก่อนเข้าสู่ขั้นตอนกฎหมาย
             </p>
+            <div className="command-actions">
+              <button className="btn btn-primary" onClick={fetchLogs}>
+                รีเฟรชสตรีม
+              </button>
+              <button className="btn btn-secondary" onClick={() => router.push('/settings')}>
+                ไปยัง Control Room
+              </button>
+            </div>
           </div>
-          <button onClick={fetchLogs} className="btn btn-secondary">🔄 รีเฟรช</button>
-        </div>
 
-        {/* Filter Bar */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          {(['ALL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={filter === f ? 'btn btn-primary' : 'btn btn-secondary'}
-              style={{ fontSize: '0.85rem' }}
-            >
-              {f === 'ALL' && '📋 ทั้งหมด'}
-              {f === 'HIGH' && '🔴 ความเสี่ยงสูงมาก (≥80%)'}
-              {f === 'MEDIUM' && '🟡 ปานกลาง (50-79%)'}
-              {f === 'LOW' && '🟢 ต่ำ (<50%)'}
-            </button>
-          ))}
-        </div>
+          <div className="card">
+            <div className="panel-heading">
+              <div>
+                <h3>Signal Summary</h3>
+                <p>ดูความร้อนของ incident stream แบบย่อ</p>
+              </div>
+            </div>
+            <div className="command-pulse">
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>Critical Alerts</strong>
+                  <span>เคสที่เกิน 80% และเข้าข่าย block เร่งด่วน</span>
+                </div>
+                <div className="command-pulse__value">{overview.high}</div>
+              </div>
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>Medium Watchlist</strong>
+                  <span>เคสที่ควรให้เจ้าหน้าที่เปิดตรวจยืนยัน</span>
+                </div>
+                <div className="command-pulse__value">{overview.medium}</div>
+              </div>
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>Baseline Traffic</strong>
+                  <span>เหตุการณ์ความเสี่ยงต่ำหรือใช้เป็น pattern reference</span>
+                </div>
+                <div className="command-pulse__value">{overview.low}</div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        {/* Stats Summary */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        <section className="metric-grid" style={{ marginBottom: '1.25rem' }}>
           {[
-            { label: 'ทั้งหมด', value: logs.length, color: '#3b82f6' },
-            { label: 'ความเสี่ยงสูง', value: logs.filter(l => (l.aiRiskScore ?? 0) >= 80).length, color: '#dc2626' },
-            { label: 'ปานกลาง', value: logs.filter(l => { const s = l.aiRiskScore ?? 0; return s >= 50 && s < 80; }).length, color: '#d97706' },
-            { label: 'ต่ำ / ปลอดภัย', value: logs.filter(l => (l.aiRiskScore ?? 0) < 50).length, color: '#16a34a' },
-          ].map((stat) => (
-            <div key={stat.label} className="card" style={{ padding: '1rem', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>{stat.label}</div>
+            { label: 'Total Events', value: overview.total, className: 'card-glow-blue' },
+            { label: 'Critical', value: overview.high, className: 'card-glow-danger' },
+            { label: 'Elevated', value: overview.medium, className: 'card-glow-warning' },
+            { label: 'Low Signal', value: overview.low, className: 'card-glow-green' },
+          ].map((item) => (
+            <div key={item.label} className={`card metric-card ${item.className}`}>
+              <span className="metric-card__label">{item.label}</span>
+              <div className="metric-card__value">{item.value}</div>
+              <div className="metric-card__footer">อัปเดตจาก stream ที่ extension ส่งเข้าระบบ</div>
             </div>
           ))}
-        </div>
+        </section>
 
-        {error && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#dc2626', padding: '1rem', marginBottom: '1.5rem' }}>
-            ⚠️ {error}
+        <section className="card" style={{ marginBottom: '1.25rem' }}>
+          <div className="table-toolbar">
+            <div className="table-toolbar__meta">กรองเหตุการณ์ตามระดับความเสี่ยงเพื่อให้ทีมปฏิบัติการจัดคิวงานได้เร็วขึ้น</div>
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+              {(['ALL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((value) => (
+                <button
+                  key={value}
+                  onClick={() => setFilter(value)}
+                  className={filter === value ? 'btn btn-primary' : 'btn btn-secondary'}
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  {value === 'ALL' && 'ทั้งหมด'}
+                  {value === 'HIGH' && 'High Critical'}
+                  {value === 'MEDIUM' && 'Elevated'}
+                  {value === 'LOW' && 'Low Signal'}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
+        </section>
+
+        {error && <div className="alert alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            <div className="loading-spinner" style={{ margin: '0 auto 1rem' }} />
-            กำลังโหลดข้อมูล...
+          <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+            กำลังโหลด risk stream...
           </div>
         ) : filteredLogs.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
-            <p style={{ color: 'var(--text-muted)' }}>ยังไม่มีประวัติการสแกนอัตโนมัติ</p>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-              เปิดส่วนขยายเบราว์เซอร์แล้วตั้งค่าเป็น Auto-Detect หรือ Auto-Block เพื่อเริ่มสแกน
-            </p>
+            ยังไม่มีประวัติการสแกนอัตโนมัติในระดับที่เลือก
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <section className="intel-feed">
             {filteredLogs.map((log) => {
               const score = log.aiRiskScore ?? 0;
-              const isBlocked = log.blockLogs && log.blockLogs.length > 0;
+              const isBlocked = (log.blockLogs?.length ?? 0) > 0;
               return (
-                <div
+                <button
                   key={log.id}
                   className="card"
-                  style={{
-                    padding: '1.25rem',
-                    borderLeft: `4px solid ${getRiskClass(score)}`,
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s',
-                  }}
+                  style={{ textAlign: 'left', padding: '1.2rem' }}
                   onClick={() => router.push(`/cases/${log.id}`)}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateX(4px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateX(0)')}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                        <span style={{
-                          display: 'inline-block',
-                          background: getRiskClass(score),
-                          color: 'white',
-                          borderRadius: '999px',
-                          padding: '2px 10px',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                        }}>
-                          {score}% – {getRiskLabel(score)}
+                  <div className="table-toolbar" style={{ marginBottom: '0.8rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <span
+                        className="badge"
+                        style={{
+                          background: getRiskColor(score),
+                          color: '#fff',
+                        }}
+                      >
+                        {Math.round(score)}% {getRiskLabel(score)}
+                      </span>
+                      {isBlocked && (
+                        <span className="badge" style={{ background: '#7c3aed', color: '#fff' }}>
+                          BLOCKED
                         </span>
-                        {isBlocked && (
-                          <span style={{ background: '#7c3aed', color: 'white', borderRadius: '999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 700 }}>
-                            🔒 BLOCKED
-                          </span>
-                        )}
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {new Date(log.createdAt).toLocaleString('th-TH')}
-                        </span>
-                      </div>
-                      <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {log.title}
-                      </h3>
-                      <p style={{ fontSize: '0.8rem', color: '#1e3a8a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        🌐 {log.url}
-                      </p>
-                      {log.aiAnalysis && (
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                          {log.aiAnalysis}
-                        </p>
                       )}
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        {new Date(log.createdAt).toLocaleString('th-TH')}
+                      </span>
                     </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>คดีหมายเลข</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.85rem' }}>{log.id}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>🤖 SYSTEM</div>
-                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{log.id}</div>
                   </div>
-                </div>
+
+                  <div style={{ display: 'grid', gap: '0.6rem' }}>
+                    <div>
+                      <strong style={{ fontSize: '1rem' }}>{log.title}</strong>
+                      <div className="case-domain">{log.url}</div>
+                    </div>
+
+                    <div className="risk-meter">
+                      <span style={{ minWidth: '92px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Risk Signal</span>
+                      <div className="risk-meter__track" style={{ width: '180px' }}>
+                        <div
+                          className="risk-meter__fill"
+                          style={{
+                            width: `${score}%`,
+                            background:
+                              score >= 80
+                                ? 'linear-gradient(90deg, #ef4444, #b91c1c)'
+                                : score >= 50
+                                  ? 'linear-gradient(90deg, #f59e0b, #d97706)'
+                                  : 'linear-gradient(90deg, #10b981, #047857)',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <p style={{ color: 'var(--text-muted)', lineHeight: 1.7, fontSize: '0.88rem' }}>
+                      {log.aiAnalysis}
+                    </p>
+                  </div>
+                </button>
               );
             })}
-          </div>
+          </section>
         )}
       </main>
     </div>

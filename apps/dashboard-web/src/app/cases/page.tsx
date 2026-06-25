@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import { CaseStatus, ProductType } from '@kp-ads/shared';
+
+function riskTone(score?: number) {
+  if ((score ?? 0) >= 80) return { color: '#dc2626', bg: 'linear-gradient(90deg, #ef4444, #b91c1c)' };
+  if ((score ?? 0) >= 50) return { color: '#d97706', bg: 'linear-gradient(90deg, #f59e0b, #d97706)' };
+  return { color: '#16a34a', bg: 'linear-gradient(90deg, #10b981, #047857)' };
+}
 
 export default function CasesPage() {
   const router = useRouter();
@@ -30,9 +36,7 @@ export default function CasesPage() {
       if (typeFilter) queryParams.append('productType', typeFilter);
 
       const res = await fetch(`http://localhost:3001/cases?${queryParams.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -44,10 +48,9 @@ export default function CasesPage() {
         throw new Error('ไม่สามารถดึงข้อมูลคดีได้');
       }
 
-      const data = await res.json();
-      setCases(data);
+      setCases(await res.json());
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      setError(err.message || 'เกิดข้อผิดพลาดในการโหลดรายการคดี');
     } finally {
       setLoading(false);
     }
@@ -57,298 +60,280 @@ export default function CasesPage() {
     fetchCases();
   }, [statusFilter, typeFilter]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchCases();
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case CaseStatus.PENDING:
-        return 'badge badge-pending';
-      case CaseStatus.UNDER_REVIEW:
-        return 'badge badge-review';
-      case CaseStatus.APPROVED_BLOCKED:
-        return 'badge badge-blocked';
-      default:
-        return 'badge badge-rejected';
-    }
-  };
+  const insights = useMemo(() => {
+    const total = cases.length;
+    const autoScan = cases.filter((item) => item.reporterRole === 'SYSTEM').length;
+    const highRisk = cases.filter((item) => (item.aiRiskScore ?? 0) >= 80).length;
+    const pending = cases.filter((item) => item.status === CaseStatus.PENDING).length;
+    return { total, autoScan, highRisk, pending };
+  }, [cases]);
 
   const translateStatus = (status: string) => {
-    switch (status) {
-      case CaseStatus.PENDING:
-        return 'แจ้งเบาะแสประชาชน (Pending)';
-      case CaseStatus.UNDER_REVIEW:
-        return 'อยู่ระหว่างตรวจสอบ (Review)';
-      case CaseStatus.APPROVED_BLOCKED:
-        return 'บล็อกแล้ว (Blocked)';
-      default:
-        return 'ยกเลิกคดี (Rejected)';
-    }
+    if (status === CaseStatus.PENDING) return 'Pending';
+    if (status === CaseStatus.UNDER_REVIEW) return 'Under Review';
+    if (status === CaseStatus.APPROVED_BLOCKED) return 'Blocked';
+    return 'Rejected';
   };
 
   const translateProductType = (type: string) => {
     switch (type) {
       case ProductType.FOOD:
-        return 'อาหาร (Food)';
+        return 'อาหาร';
       case ProductType.DRUG:
-        return 'ยา (Drug)';
+        return 'ยา';
       case ProductType.COSMETIC:
-        return 'เครื่องสำอาง (Cosmetic)';
+        return 'เครื่องสำอาง';
       case ProductType.MEDICAL_DEVICE:
-        return 'เครื่องมือแพทย์ (Medical Device)';
+        return 'เครื่องมือแพทย์';
       case ProductType.HERBAL:
-        return 'สมุนไพร (Herbal)';
-      case (ProductType as any).CLINIC:
+        return 'สมุนไพร';
       case 'CLINIC':
-        return 'สถานพยาบาล (Clinic)';
-      case (ProductType as any).HAZARDOUS:
+        return 'สถานพยาบาล';
       case 'HAZARDOUS':
-        return 'วัตถุอันตราย (Hazardous)';
-      case (ProductType as any).NARCOTIC:
+        return 'วัตถุอันตราย';
       case 'NARCOTIC':
-        return 'วัตถุเสพติด (Narcotic)';
+        return 'ยาเสพติด';
       default:
         return type;
     }
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchCases();
   };
 
   return (
     <div>
       <Header />
       <main className="container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>รายการดำเนินคดีและแจ้งเบาะแส</h1>
-            <p style={{ color: 'var(--text-muted)' }}>คิวงานตรวจสอบคำโฆษณา คอนเฟิร์มข้อกฎหมาย และอนุมัติระงับการเข้าถึงโดเมน</p>
+        <section className="command-grid command-grid--hero" style={{ marginBottom: '1.25rem' }}>
+          <div className="card command-hero">
+            <span className="command-hero__eyebrow">Case Operations Room</span>
+            <h1 className="command-hero__title">ห้องปฏิบัติการคดีและหลักฐาน</h1>
+            <p className="command-hero__description">
+              จัดการทุกเคสใน workflow เดียว ตั้งแต่ intake, AI triage, law confirmation, reviewer decision,
+              ไปจนถึง block execution และ export หลักฐาน
+            </p>
+            <div className="command-actions">
+              <button className="btn btn-primary" onClick={fetchCases}>
+                รีเฟรชคิวคดี
+              </button>
+              <button className="btn btn-secondary" onClick={() => router.push('/risk-logs')}>
+                เปิด risk stream
+              </button>
+            </div>
           </div>
-          
-          <button onClick={fetchCases} className="btn btn-secondary" style={{ padding: '0.6rem 1rem' }}>
-            🔄 รีเฟรชข้อมูล
-          </button>
-        </div>
 
-        {/* Filter Toolbar */}
-        <div className="card" style={{ marginBottom: '2rem', padding: '1.25rem' }}>
-          <form onSubmit={handleSearchSubmit} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+          <div className="card">
+            <div className="panel-heading">
+              <div>
+                <h3>Queue Snapshot</h3>
+                <p>สถานะเร่งด่วนของห้องคดีแบบย่อ</p>
+              </div>
+            </div>
+            <div className="command-pulse">
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>Total Cases</strong>
+                  <span>คดีทั้งหมดในระบบ</span>
+                </div>
+                <div className="command-pulse__value">{insights.total}</div>
+              </div>
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>Pending Action</strong>
+                  <span>คดีที่ยังค้างการเปิดตรวจ</span>
+                </div>
+                <div className="command-pulse__value">{insights.pending}</div>
+              </div>
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>Auto-Scan Inflow</strong>
+                  <span>คดีที่ระบบสแกนเข้ามาอัตโนมัติ</span>
+                </div>
+                <div className="command-pulse__value">{insights.autoScan}</div>
+              </div>
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>High-Risk Cases</strong>
+                  <span>คดีที่ AI ให้ความเสี่ยงสูงมาก</span>
+                </div>
+                <div className="command-pulse__value">{insights.highRisk}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="card" style={{ marginBottom: '1.25rem' }}>
+          <div className="panel-heading">
+            <div>
+              <h3>Search & Filters</h3>
+              <p>คัดเคสตาม domain, หมายเลขคดี, สถานะ และประเภทผลิตภัณฑ์</p>
+            </div>
+          </div>
+
+          <form className="search-panel" onSubmit={handleSearchSubmit}>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>ค้นหาโดเมน, ชื่อหัวข้อ หรือเลขเคส</label>
+              <label>ค้นหาคดีหรือโดเมน</label>
               <input
                 type="text"
-                placeholder="เช่น CASE-2026-001 หรือ fake-slimming.com..."
+                placeholder="เช่น CASE-2026-001 หรือ fake-slimming-pills.com"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>ตัวกรองสถานะคดี</label>
+              <label>สถานะ</label>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="">ทั้งหมด (All Status)</option>
-                <option value={CaseStatus.PENDING}>แจ้งเบาะแสประชาชน (Pending)</option>
-                <option value={CaseStatus.UNDER_REVIEW}>อยู่ระหว่างตรวจสอบ (Under Review)</option>
-                <option value={CaseStatus.APPROVED_BLOCKED}>อนุมัติบล็อกแล้ว (Blocked)</option>
-                <option value={CaseStatus.REJECTED}>ยกเลิก/ปฏิเสธ (Rejected)</option>
+                <option value="">ทั้งหมด</option>
+                <option value={CaseStatus.PENDING}>Pending</option>
+                <option value={CaseStatus.UNDER_REVIEW}>Under Review</option>
+                <option value={CaseStatus.APPROVED_BLOCKED}>Blocked</option>
+                <option value={CaseStatus.REJECTED}>Rejected</option>
               </select>
             </div>
-
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>ประเภทผลิตภัณฑ์</label>
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                <option value="">ทั้งหมด (All Product Type)</option>
-                <option value={ProductType.FOOD}>อาหาร (Food)</option>
-                <option value={ProductType.DRUG}>ยา (Drug)</option>
-                <option value={ProductType.COSMETIC}>เครื่องสำอาง (Cosmetic)</option>
+                <option value="">ทั้งหมด</option>
+                <option value={ProductType.FOOD}>อาหาร</option>
+                <option value={ProductType.DRUG}>ยา</option>
+                <option value={ProductType.COSMETIC}>เครื่องสำอาง</option>
                 <option value={ProductType.MEDICAL_DEVICE}>เครื่องมือแพทย์</option>
-                <option value={ProductType.HERBAL}>สมุนไพร (Herbal)</option>
-                <option value={(ProductType as any).CLINIC || 'CLINIC'}>สถานพยาบาล (Clinic)</option>
-                <option value={(ProductType as any).HAZARDOUS || 'HAZARDOUS'}>วัตถุอันตราย (Hazardous)</option>
-                <option value={(ProductType as any).NARCOTIC || 'NARCOTIC'}>วัตถุเสพติด (Narcotic)</option>
+                <option value={ProductType.HERBAL}>สมุนไพร</option>
+                <option value="CLINIC">สถานพยาบาล</option>
+                <option value="HAZARDOUS">วัตถุอันตราย</option>
+                <option value="NARCOTIC">ยาเสพติด</option>
               </select>
             </div>
-
-            <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', height: '42px' }}>
-              ค้นหา 🔍
+            <button type="submit" className="btn btn-primary">
+              ค้นหา
             </button>
           </form>
-        </div>
+        </section>
 
-        {error && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '8px',
-            color: 'var(--color-danger)',
-            padding: '1rem',
-            marginBottom: '1.5rem'
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
+        {error && <div className="alert alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '4rem' }}>
-            <div style={{
-              display: 'inline-block',
-              width: '40px',
-              height: '40px',
-              border: '4px solid rgba(255,255,255,0.1)',
-              borderRadius: '50%',
-              borderTopColor: 'var(--color-primary)',
-              animation: 'spin 1s ease-in-out infinite',
-              marginBottom: '1rem'
-            }}></div>
-            <style>{`
-              @keyframes spin {
-                to { transform: rotate(360deg); }
-              }
-            `}</style>
-            <p style={{ color: 'var(--text-muted)' }}>กำลังดึงข้อมูลรายการคดีความ...</p>
+          <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+            กำลังโหลด case operations...
           </div>
         ) : cases.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
-            <span style={{ fontSize: '3rem' }}>📂</span>
-            <h3 style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>ไม่พบรายการคดีตรงตามข้อกำหนด</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ไม่มีคดีค้างส่งหรือไม่มีการแจ้งเตือนในช่วงเวลานี้</p>
+          <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+            ไม่พบรายการคดีที่ตรงกับเงื่อนไข
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: '150px' }}>เลขที่คดี</th>
-                  <th>โฆษณาที่ตรวจพบ</th>
-                  <th>โดเมนเป้าหมาย</th>
-                  <th style={{ width: '150px' }}>ประเภทสินค้า</th>
-                  <th style={{ width: '130px' }}>คะแนนความเสี่ยง</th>
-                  <th style={{ width: '140px' }}>ผู้แจ้งเบาะแส</th>
-                  <th style={{ width: '180px' }}>สถานะ</th>
-                  <th style={{ width: '250px' }}>การดำเนินการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cases.map((c) => (
-                  <tr key={c.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#1e3a8a' }}>
-                      {c.id}
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{c.title}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.url}
-                      </div>
-                    </td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}>
-                      {c.domain}
-                    </td>
-                    <td>
-                      <span style={{
-                        fontSize: '0.85rem',
-                        background: 'rgba(255,255,255,0.05)',
-                        padding: '0.2rem 0.5rem',
-                        borderRadius: '4px'
-                      }}>
-                        {translateProductType(c.productType)}
-                      </span>
-                    </td>
-                    <td>
-                      {c.aiRiskScore !== null && c.aiRiskScore !== undefined ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <span style={{
-                            display: 'inline-block',
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            backgroundColor: c.aiRiskScore >= 80 ? 'var(--color-danger)' : c.aiRiskScore >= 50 ? '#f59e0b' : '#10b981'
-                          }}></span>
-                          <span style={{
-                            fontWeight: 700,
-                            color: c.aiRiskScore >= 80 ? 'var(--color-danger)' : c.aiRiskScore >= 50 ? '#d97706' : '#059669'
-                          }}>
-                            {c.aiRiskScore.toFixed(1)}%
-                          </span>
-                        </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>ยังไม่ประเมิน</span>
-                      )}
-                    </td>
-                    <td>
-                      <span style={{
-                        color: c.reporterRole === 'INSPECTOR' ? '#7c3aed' : '#047857',
-                        fontWeight: 700,
-                        fontSize: '0.85rem'
-                      }}>
-                        {c.reporterRole === 'INSPECTOR' ? '👮 เจ้าหน้าที่' : '👥 ประชาชน'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={getStatusBadgeClass(c.status)}>
-                        {translateStatus(c.status)}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <button
-                          onClick={() => router.push(`/cases/${c.id}`)}
-                          className="btn btn-primary"
-                          style={{
-                            padding: '0.4rem 0.8rem',
-                            fontSize: '0.8rem',
-                            borderRadius: '6px',
-                            background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary))',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          เปิดตรวจ 🔍
-                        </button>
-                        <button
-                          onClick={() => {
-                            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(c, null, 2));
-                            const downloadAnchor = document.createElement('a');
-                            downloadAnchor.setAttribute("href", dataStr);
-                            downloadAnchor.setAttribute("download", `sentinel-case-${c.id}.json`);
-                            document.body.appendChild(downloadAnchor);
-                            downloadAnchor.click();
-                            downloadAnchor.remove();
-                          }}
-                          className="btn"
-                          style={{
-                            padding: '0.4rem 0.8rem',
-                            fontSize: '0.8rem',
-                            borderRadius: '6px',
-                            background: 'linear-gradient(135deg, #27272a 0%, #000000 100%)',
-                            color: '#ffffff',
-                            fontWeight: 700,
-                            border: '1px solid #3f3f46',
-                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.25rem'
-                          }}
-                          onMouseOver={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-1px)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.45)';
-                            e.currentTarget.style.background = 'linear-gradient(135deg, #3f3f46 0%, #18181b 100%)';
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.transform = 'none';
-                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
-                            e.currentTarget.style.background = 'linear-gradient(135deg, #27272a 0%, #000000 100%)';
-                          }}
-                        >
-                          💾 Export JSON
-                        </button>
-                      </div>
-                    </td>
+          <section className="card">
+            <div className="table-toolbar">
+              <div className="table-toolbar__meta">พบ {cases.length} คดีในคิวปฏิบัติการปัจจุบัน</div>
+            </div>
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Case ID</th>
+                    <th>รายละเอียด</th>
+                    <th>ประเภท</th>
+                    <th>Risk</th>
+                    <th>Source</th>
+                    <th>สถานะ</th>
+                    <th>จัดการ</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {cases.map((item) => {
+                    const tone = riskTone(item.aiRiskScore);
+                    return (
+                      <tr key={item.id}>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#1d4ed8' }}>{item.id}</td>
+                        <td>
+                          <div style={{ fontWeight: 700 }}>{item.title}</div>
+                          <div className="case-domain">{item.url}</div>
+                        </td>
+                        <td>{translateProductType(item.productType)}</td>
+                        <td>
+                          {item.aiRiskScore !== null && item.aiRiskScore !== undefined ? (
+                            <div className="risk-meter">
+                              <span style={{ minWidth: '44px', color: tone.color, fontWeight: 700 }}>
+                                {Math.round(item.aiRiskScore)}%
+                              </span>
+                              <div className="risk-meter__track">
+                                <div className="risk-meter__fill" style={{ width: `${item.aiRiskScore}%`, background: tone.bg }} />
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>ยังไม่วิเคราะห์</span>
+                          )}
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              color:
+                                item.reporterRole === 'INSPECTOR'
+                                  ? '#7c3aed'
+                                  : item.reporterRole === 'SYSTEM'
+                                    ? '#0f766e'
+                                    : '#047857',
+                              fontWeight: 700,
+                              fontSize: '0.84rem',
+                            }}
+                          >
+                            {item.reporterRole === 'INSPECTOR'
+                              ? 'เจ้าหน้าที่'
+                              : item.reporterRole === 'SYSTEM'
+                                ? 'SYSTEM AUTO-SCAN'
+                                : 'ประชาชน'}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={
+                              item.status === CaseStatus.PENDING
+                                ? 'badge badge-pending'
+                                : item.status === CaseStatus.UNDER_REVIEW
+                                  ? 'badge badge-review'
+                                  : item.status === CaseStatus.APPROVED_BLOCKED
+                                    ? 'badge badge-blocked'
+                                    : 'badge badge-rejected'
+                            }
+                          >
+                            {translateStatus(item.status)}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <button
+                              className="btn btn-primary"
+                              style={{ padding: '0.55rem 0.9rem', fontSize: '0.8rem' }}
+                              onClick={() => router.push(`/cases/${item.id}`)}
+                            >
+                              เปิดตรวจ
+                            </button>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '0.55rem 0.9rem', fontSize: '0.8rem' }}
+                              onClick={() => {
+                                const dataStr = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(item, null, 2))}`;
+                                const anchor = document.createElement('a');
+                                anchor.setAttribute('href', dataStr);
+                                anchor.setAttribute('download', `sentinel-case-${item.id}.json`);
+                                document.body.appendChild(anchor);
+                                anchor.click();
+                                anchor.remove();
+                              }}
+                            >
+                              Export JSON
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
       </main>
     </div>

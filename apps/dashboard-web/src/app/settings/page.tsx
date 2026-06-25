@@ -41,11 +41,19 @@ export default function SettingsPage() {
   const fetchConfig = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
     if (!token) {
       router.push('/');
       return;
     }
-    setUserRole(localStorage.getItem('userRole') || '');
+    if (userStr) {
+      try {
+        const parsedUser = JSON.parse(userStr);
+        setUserRole(parsedUser.role || '');
+      } catch {
+        setUserRole('');
+      }
+    }
     try {
       const res = await fetch('http://localhost:3001/config/risk-level');
       if (!res.ok) throw new Error('ดึงค่าการตั้งค่าไม่ได้');

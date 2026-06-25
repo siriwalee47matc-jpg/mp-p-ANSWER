@@ -1,9 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import { CaseStatus, ProductType } from '@kp-ads/shared';
+
+function pct(part: number, total: number) {
+  if (!total) return 0;
+  return Math.round((part / total) * 100);
+}
+
+function statusColor(status: string) {
+  if (status === CaseStatus.APPROVED_BLOCKED) return 'linear-gradient(90deg, #ef4444, #b91c1c)';
+  if (status === CaseStatus.UNDER_REVIEW) return 'linear-gradient(90deg, #38bdf8, #0284c7)';
+  if (status === CaseStatus.PENDING) return 'linear-gradient(90deg, #fbbf24, #d97706)';
+  return 'linear-gradient(90deg, #94a3b8, #64748b)';
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -22,23 +34,23 @@ export default function DashboardPage() {
     }
 
     try {
-      // 1. Fetch Cases
-      const casesRes = await fetch('http://localhost:3001/cases', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!casesRes.ok) throw new Error('ไม่สามารถดึงสถิติคดีได้');
-      const casesData = await casesRes.json();
-      setCases(casesData);
+      const [casesRes, domainsRes] = await Promise.all([
+        fetch('http://localhost:3001/cases', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch('http://localhost:3001/domains', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-      // 2. Fetch Blocked Domains
-      const domainsRes = await fetch('http://localhost:3001/domains', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!domainsRes.ok) throw new Error('ไม่สามารถดึงข้อมูลโดเมนที่ถูกบล็อกได้');
-      const domainsData = await domainsRes.json();
+      if (!casesRes.ok) throw new Error('ไม่สามารถดึงข้อมูลคดีได้');
+      if (!domainsRes.ok) throw new Error('ไม่สามารถดึงบัญชีโดเมนที่ถูกบล็อกได้');
+
+      const [casesData, domainsData] = await Promise.all([casesRes.json(), domainsRes.json()]);
+      setCases(casesData);
       setBlockedDomains(domainsData);
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูลสถิติ');
+      setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล command center');
     } finally {
       setLoading(false);
     }
@@ -48,324 +60,310 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  // Compute stats
-  const totalCases = cases.length;
-  const pendingCases = cases.filter(c => c.status === CaseStatus.PENDING).length;
-  const reviewCases = cases.filter(c => c.status === CaseStatus.UNDER_REVIEW).length;
-  const blockedCases = cases.filter(c => c.status === CaseStatus.APPROVED_BLOCKED).length;
-  const rejectedCases = cases.filter(c => c.status === CaseStatus.REJECTED).length;
+  const stats = useMemo(() => {
+    const totalCases = cases.length;
+    const pendingCases = cases.filter((item) => item.status === CaseStatus.PENDING).length;
+    const reviewCases = cases.filter((item) => item.status === CaseStatus.UNDER_REVIEW).length;
+    const blockedCases = cases.filter((item) => item.status === CaseStatus.APPROVED_BLOCKED).length;
+    const rejectedCases = cases.filter((item) => item.status === CaseStatus.REJECTED).length;
+    const autoDetected = cases.filter((item) => item.reporterRole === 'SYSTEM').length;
+    const highRisk = cases.filter((item) => (item.aiRiskScore ?? 0) >= 80).length;
+    const averageRisk =
+      totalCases > 0
+        ? Math.round(cases.reduce((sum, item) => sum + (item.aiRiskScore ?? 0), 0) / totalCases)
+        : 0;
 
-  const consumerTipsCount = cases.filter(c => c.reporterRole === 'CONSUMER').length;
-  const inspectorCasesCount = cases.filter(c => c.reporterRole === 'INSPECTOR').length;
+    return {
+      totalCases,
+      pendingCases,
+      reviewCases,
+      blockedCases,
+      rejectedCases,
+      autoDetected,
+      highRisk,
+      averageRisk,
+    };
+  }, [cases]);
 
-  // Breakdown by product type
-  const foodCount = cases.filter(c => c.productType === ProductType.FOOD).length;
-  const drugCount = cases.filter(c => c.productType === ProductType.DRUG).length;
-  const cosmeticCount = cases.filter(c => c.productType === ProductType.COSMETIC).length;
-  const herbalCount = cases.filter(c => c.productType === ProductType.HERBAL).length;
-  const medicalDeviceCount = cases.filter(c => c.productType === ProductType.MEDICAL_DEVICE).length;
-  const clinicCount = cases.filter(c => c.productType === (ProductType as any).CLINIC || c.productType === 'CLINIC').length;
-  const hazardousCount = cases.filter(c => c.productType === (ProductType as any).HAZARDOUS || c.productType === 'HAZARDOUS').length;
-  const narcoticCount = cases.filter(c => c.productType === (ProductType as any).NARCOTIC || c.productType === 'NARCOTIC').length;
-  const effectivenessRate = totalCases > 0 ? Math.round((blockedCases / totalCases) * 100) : 0;
+  const productMix = useMemo(
+    () => [
+      { label: 'อาหาร / เสริมอาหาร', type: ProductType.FOOD, color: 'linear-gradient(90deg, #0f766e, #14b8a6)' },
+      { label: 'ยา', type: ProductType.DRUG, color: 'linear-gradient(90deg, #0284c7, #38bdf8)' },
+      { label: 'เครื่องสำอาง', type: ProductType.COSMETIC, color: 'linear-gradient(90deg, #7c3aed, #a855f7)' },
+      { label: 'สมุนไพร', type: ProductType.HERBAL, color: 'linear-gradient(90deg, #16a34a, #4ade80)' },
+      { label: 'เครื่องมือแพทย์', type: ProductType.MEDICAL_DEVICE, color: 'linear-gradient(90deg, #ea580c, #fb923c)' },
+      { label: 'คลินิก / สถานพยาบาล', type: 'CLINIC', color: 'linear-gradient(90deg, #0891b2, #22d3ee)' },
+    ].map((entry) => {
+      const count = cases.filter((item) => item.productType === entry.type).length;
+      return { ...entry, count, percent: pct(count, stats.totalCases) };
+    }),
+    [cases, stats.totalCases],
+  );
 
-  // Percentage calculations
-  const percentOfTotal = (count: number) => {
-    if (totalCases === 0) return 0;
-    return Math.round((count / totalCases) * 100);
-  };
+  const recentSignals = useMemo(
+    () =>
+      cases
+        .slice()
+        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+        .slice(0, 6),
+    [cases],
+  );
 
   return (
     <div>
       <Header />
       <main className="container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-          <div>
-            <h1 style={{ fontSize: '2.25rem', marginBottom: '0.25rem' }}>ศูนย์วิเคราะห์ข้อมูลและสถิติคดี</h1>
-            <p style={{ color: 'var(--text-muted)' }}>หน้าจอแสดงผลรายงานสรุปสำหรับผู้บริหาร เฝ้าติดตามการปฏิบัติงานและวิเคราะห์ภัยคุกคามผู้บริโภค</p>
+        <section className="command-grid command-grid--hero" style={{ marginBottom: '1.25rem' }}>
+          <div className="card command-hero">
+            <span className="command-hero__eyebrow">Sentinel Executive Command</span>
+            <h1 className="command-hero__title">Dashboard ควบคุมภารกิจเฝ้าระวังโฆษณาผิดกฎหมาย</h1>
+            <p className="command-hero__description">
+              มอนิเตอร์คดี, ความเสี่ยง, blacklist, auto-detect pipeline และสถานะการบังคับใช้กฎหมายจากจุดเดียว
+              พร้อมมุมมองสำหรับผู้บริหารและหัวหน้าชุดปฏิบัติการ
+            </p>
+            <div className="command-actions">
+              <button className="btn btn-primary" onClick={fetchData}>
+                รีเฟรชภาพรวมระบบ
+              </button>
+              <button className="btn btn-secondary" onClick={() => router.push('/risk-logs')}>
+                เปิด Auto Risk Stream
+              </button>
+              <button className="btn btn-secondary" onClick={() => router.push('/cases')}>
+                ไปยังห้องปฏิบัติการคดี
+              </button>
+            </div>
           </div>
-          <button onClick={fetchData} className="btn btn-secondary">
-            🔄 รีเฟรชสถิติ
-          </button>
-        </div>
+
+          <div className="card">
+            <div className="panel-heading">
+              <div>
+                <h3>สถานะปัจจุบันของระบบ</h3>
+                <p>อ่านภาพรวมสุขภาพระบบภายใน 30 วินาที</p>
+              </div>
+            </div>
+            <div className="command-pulse">
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>Auto-detect Intake</strong>
+                  <span>คดีที่สร้างโดยระบบสแกนอัตโนมัติ</span>
+                </div>
+                <div className="command-pulse__value">{stats.autoDetected}</div>
+              </div>
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>High-Risk Queue</strong>
+                  <span>คดีที่มีคะแนนความเสี่ยง 80% ขึ้นไป</span>
+                </div>
+                <div className="command-pulse__value">{stats.highRisk}</div>
+              </div>
+              <div className="command-pulse__item">
+                <div className="command-pulse__label">
+                  <strong>Average Risk Heat</strong>
+                  <span>ค่าความเสี่ยงเฉลี่ยของคดีทั้งหมด</span>
+                </div>
+                <div className="command-pulse__value">{stats.averageRisk}%</div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {error && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '8px',
-            color: 'var(--color-danger)',
-            padding: '1rem',
-            marginBottom: '1.5rem'
-          }}>
-            ⚠️ {error}
+          <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+            {error}
           </div>
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '6rem' }}>
-            <p style={{ color: 'var(--text-muted)' }}>กำลังประมวลผลรายงานสถิติของระบบ...</p>
+          <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
+            กำลังประมวลผลข้อมูล command center...
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {/* KPI Cards Grid */}
-            <div className="grid grid-4">
-              <div className="card card-glow-orange">
-                <span style={{ fontSize: '1.5rem' }}>📋</span>
-                <div className="stat-value">{totalCases}</div>
-                <div className="stat-desc">จำนวนข้อร้องเรียนและคดีทั้งหมด</div>
+          <>
+            <section className="metric-grid" style={{ marginBottom: '1.25rem' }}>
+              <div className="card metric-card card-glow-primary">
+                <span className="metric-card__label">คดีทั้งหมด</span>
+                <div className="metric-card__headline">
+                  <div className="metric-card__value">{stats.totalCases}</div>
+                  <span className="metric-card__delta good">Live</span>
+                </div>
+                <div className="metric-card__footer">รวมทั้งคดีจากประชาชน เจ้าหน้าที่ และระบบ auto-scan</div>
               </div>
-
-              <div className="card card-glow-green">
-                <span style={{ fontSize: '1.5rem' }}>⏳</span>
-                <div className="stat-value">{pendingCases + reviewCases}</div>
-                <div className="stat-desc">คดีอยู่ระหว่างกระบวนการตรวจสอบ</div>
+              <div className="card metric-card card-glow-warning">
+                <span className="metric-card__label">คิวรอตรวจ</span>
+                <div className="metric-card__headline">
+                  <div className="metric-card__value">{stats.pendingCases + stats.reviewCases}</div>
+                  <span className="metric-card__delta warn">Action</span>
+                </div>
+                <div className="metric-card__footer">คดีที่ยังต้องผ่านการตรวจสอบหรือยืนยันข้อกฎหมาย</div>
               </div>
-
-              <div className="card card-glow-blue">
-                <span style={{ fontSize: '1.5rem' }}>🚫</span>
-                <div className="stat-value">{blockedDomains.length}</div>
-                <div className="stat-desc">โดเมนโฆษณาอันตรายที่ถูกปิดกั้น</div>
+              <div className="card metric-card card-glow-danger">
+                <span className="metric-card__label">บล็อกสำเร็จ</span>
+                <div className="metric-card__headline">
+                  <div className="metric-card__value">{stats.blockedCases}</div>
+                  <span className="metric-card__delta critical">{pct(stats.blockedCases, stats.totalCases)}%</span>
+                </div>
+                <div className="metric-card__footer">คดีที่จบด้วยการระงับหรือเพิ่มเข้า blacklist แล้ว</div>
               </div>
-
-              <div className="card card-glow-purple">
-                <span style={{ fontSize: '1.5rem' }}>👥</span>
-                <div className="stat-value">{percentOfTotal(consumerTipsCount)}%</div>
-                <div className="stat-desc">สัดส่วนแจ้งเบาะแสจากภาคประชาชน</div>
+              <div className="card metric-card card-glow-blue">
+                <span className="metric-card__label">บัญชีโดเมนเสี่ยง</span>
+                <div className="metric-card__headline">
+                  <div className="metric-card__value">{blockedDomains.length}</div>
+                  <span className="metric-card__delta good">Shielded</span>
+                </div>
+                <div className="metric-card__footer">โดเมนที่ระบบพร้อมปิดกั้นทันทีเมื่อ extension ตรวจพบ</div>
               </div>
-            </div>
+            </section>
 
-            {/* Visual Charts Layout */}
-            <div className="grid grid-2">
-              {/* Product Type Distribution */}
+            <section className="command-grid grid-2" style={{ marginBottom: '1.25rem' }}>
               <div className="card">
-                <h3 style={{ fontSize: '1.15rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                  📦 สัดส่วนการกระทำความผิดแยกตามประเภทโฆษณา
-                </h3>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  {/* Food Bar */}
+                <div className="panel-heading">
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
-                      <span>🍔 อาหารและอาหารเสริม (Food)</span>
-                      <strong>{foodCount} คดี ({percentOfTotal(foodCount)}%)</strong>
-                    </div>
-                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px' }}>
-                      <div style={{ width: `${percentOfTotal(foodCount)}%`, height: '100%', background: 'var(--color-primary)', borderRadius: '4px' }}></div>
-                    </div>
+                    <h3>Risk Pipeline</h3>
+                    <p>การไหลของคดีตั้งแต่รับเข้าไปจนถึงการบล็อก</p>
                   </div>
-
-                  {/* Drug Bar */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
-                      <span>💊 ยารักษาโรค (Drug)</span>
-                      <strong>{drugCount} คดี ({percentOfTotal(drugCount)}%)</strong>
+                </div>
+                <div className="status-strip">
+                  {[
+                    { label: 'Pending', count: stats.pendingCases, status: CaseStatus.PENDING },
+                    { label: 'Under Review', count: stats.reviewCases, status: CaseStatus.UNDER_REVIEW },
+                    { label: 'Blocked', count: stats.blockedCases, status: CaseStatus.APPROVED_BLOCKED },
+                    { label: 'Rejected', count: stats.rejectedCases, status: CaseStatus.REJECTED },
+                  ].map((entry) => (
+                    <div key={entry.label} className="status-strip__row">
+                      <div className="status-strip__label">{entry.label}</div>
+                      <div className="status-strip__track">
+                        <div
+                          className="status-strip__fill"
+                          style={{
+                            width: `${pct(entry.count, stats.totalCases)}%`,
+                            background: statusColor(entry.status),
+                          }}
+                        />
+                      </div>
+                      <div className="status-strip__value">{entry.count}</div>
                     </div>
-                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px' }}>
-                      <div style={{ width: `${percentOfTotal(drugCount)}%`, height: '100%', background: '#60a5fa', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-
-                  {/* Cosmetic Bar */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
-                      <span>💄 เครื่องสำอาง (Cosmetics)</span>
-                      <strong>{cosmeticCount} คดี ({percentOfTotal(cosmeticCount)}%)</strong>
-                    </div>
-                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px' }}>
-                      <div style={{ width: `${percentOfTotal(cosmeticCount)}%`, height: '100%', background: 'var(--color-accent)', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-
-                  {/* Herbal Bar */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
-                      <span>🌱 ผลิตภัณฑ์สมุนไพร (Herbal)</span>
-                      <strong>{herbalCount} คดี ({percentOfTotal(herbalCount)}%)</strong>
-                    </div>
-                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px' }}>
-                      <div style={{ width: `${percentOfTotal(herbalCount)}%`, height: '100%', background: 'var(--color-success)', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-
-                  {/* Medical Device Bar */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
-                      <span>🩺 เครื่องมือแพทย์ (Medical Device)</span>
-                      <strong>{medicalDeviceCount} คดี ({percentOfTotal(medicalDeviceCount)}%)</strong>
-                    </div>
-                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px' }}>
-                      <div style={{ width: `${percentOfTotal(medicalDeviceCount)}%`, height: '100%', background: '#fb923c', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-
-                  {/* Clinic Bar */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
-                      <span>🏥 สถานพยาบาล (Clinic)</span>
-                      <strong>{clinicCount} คดี ({percentOfTotal(clinicCount)}%)</strong>
-                    </div>
-                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px' }}>
-                      <div style={{ width: `${percentOfTotal(clinicCount)}%`, height: '100%', background: '#2dd4bf', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-
-                  {/* Hazardous Bar */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
-                      <span>☣️ วัตถุอันตราย (Hazardous)</span>
-                      <strong>{hazardousCount} คดี ({percentOfTotal(hazardousCount)}%)</strong>
-                    </div>
-                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px' }}>
-                      <div style={{ width: `${percentOfTotal(hazardousCount)}%`, height: '100%', background: '#f87171', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-
-                  {/* Narcotic Bar */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
-                      <span>🚨 วัตถุเสพติด (Narcotic)</span>
-                      <strong>{narcoticCount} คดี ({percentOfTotal(narcoticCount)}%)</strong>
-                    </div>
-                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px' }}>
-                      <div style={{ width: `${percentOfTotal(narcoticCount)}%`, height: '100%', background: '#a78bfa', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Status Breakdown & Source ratio */}
               <div className="card">
-                <h3 style={{ fontSize: '1.15rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                  📊 อัตราประสิทธิผลการกวาดล้างและปิดกั้นโฆษณา
-                </h3>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '2rem', alignItems: 'center' }}>
-                  {/* Left Column: Statuses & Source Ratio */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {/* Case Status Distribution */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '700', marginBottom: '0.25rem' }}>สถานะความคืบหน้าของคดีความ:</div>
-                      <div className="flex align-center justify-between" style={{ fontSize: '0.9rem' }}>
-                        <span>🟠 รอตรวจสอบ (Pending)</span>
-                        <strong style={{ fontWeight: '700' }}>{pendingCases} คดี</strong>
-                      </div>
-                      <div className="flex align-center justify-between" style={{ fontSize: '0.9rem' }}>
-                        <span>🔵 ระหว่างดำเนินงาน (Under Review)</span>
-                        <strong style={{ fontWeight: '700' }}>{reviewCases} คดี</strong>
-                      </div>
-                      <div className="flex align-center justify-between" style={{ fontSize: '0.9rem' }}>
-                        <span>🔴 สั่งปิดกั้นแล้ว (Blocked)</span>
-                        <strong style={{ fontWeight: '700' }}>{blockedCases} คดี</strong>
-                      </div>
-                      <div className="flex align-center justify-between" style={{ fontSize: '0.9rem' }}>
-                        <span>⚪ ปฏิเสธคำร้อง (Rejected)</span>
-                        <strong style={{ fontWeight: '700' }}>{rejectedCases} คดี</strong>
-                      </div>
-                    </div>
-
-                    {/* Citizens VS Officers Source Ratio */}
-                    <div style={{ background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '0.85rem', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-main)', fontWeight: '700', marginBottom: '0.5rem' }}>แหล่งที่มาเบาะแส (Reporter Source Ratio)</div>
-                      <div style={{ display: 'flex', gap: '0.25rem', height: '24px', background: 'rgba(0,0,0,0.05)', borderRadius: '6px', overflow: 'hidden', marginBottom: '0.4rem' }}>
-                        <div style={{ width: `${percentOfTotal(consumerTipsCount)}%`, background: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '0.7rem', fontWeight: 'bold' }}>
-                          {percentOfTotal(consumerTipsCount)}%
-                        </div>
-                        <div style={{ width: `${percentOfTotal(inspectorCasesCount)}%`, background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '0.7rem', fontWeight: 'bold' }}>
-                          {percentOfTotal(inspectorCasesCount)}%
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-main)', fontWeight: '600' }}>
-                        <span>👥 ประชาชน ({consumerTipsCount})</span>
-                        <span>👮 เจ้าหน้าที่ ({inspectorCasesCount})</span>
-                      </div>
-                    </div>
+                <div className="panel-heading">
+                  <div>
+                    <h3>ระบบสัญญาณเตือนเร็ว</h3>
+                    <p>มุมมองสรุปความเสี่ยงและแหล่งแจ้งเบาะแส</p>
                   </div>
-
-                  {/* Right Column: Circular Progress Chart */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1.25rem', textAlign: 'center', minHeight: '230px' }}>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '700', marginBottom: '1rem' }}>สัดส่วนปิดกั้นสำเร็จ (Blocked Success Rate)</div>
-                    
-                    <div style={{ position: 'relative', width: '130px', height: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="130" height="130" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
-                        {/* Background Circle */}
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="transparent"
-                          stroke="rgba(0, 0, 0, 0.05)"
-                          strokeWidth="10"
-                        />
-                        {/* Foreground Circle */}
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="transparent"
-                          stroke="var(--color-danger)"
-                          strokeWidth="10"
-                          strokeDasharray={2 * Math.PI * 50}
-                          strokeDashoffset={2 * Math.PI * 50 * (1 - effectivenessRate / 100)}
-                          strokeLinecap="round"
-                          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-                        />
-                      </svg>
-                      
-                      <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: '1.85rem', fontWeight: '800', color: 'var(--text-main)', lineHeight: '1' }}>
-                          {effectivenessRate}%
-                        </span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-main)', fontWeight: '700', marginTop: '2px', letterSpacing: '0.5px' }}>
-                          สำเร็จ
-                        </span>
-                      </div>
+                </div>
+                <div className="signal-board">
+                  <div className="signal-card">
+                    <div className="signal-card__title">สัดส่วนจากประชาชน</div>
+                    <div className="signal-card__value">
+                      {pct(cases.filter((item) => item.reporterRole === 'CONSUMER').length, stats.totalCases)}%
                     </div>
-                    
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: '700', marginTop: '1rem' }}>
-                      🚫 ปิดกั้นสำเร็จ {blockedCases} จากทั้งหมด {totalCases} เคส
+                    <div className="signal-card__sub">ช่วยดูว่าความเสี่ยงถูกสะท้อนจากภาคประชาชนมากน้อยแค่ไหน</div>
+                  </div>
+                  <div className="signal-card">
+                    <div className="signal-card__title">สัดส่วนจากเจ้าหน้าที่</div>
+                    <div className="signal-card__value">
+                      {pct(cases.filter((item) => item.reporterRole === 'INSPECTOR').length, stats.totalCases)}%
                     </div>
+                    <div className="signal-card__sub">ใช้ติดตามภาระงานเชิงสืบสวนและการตรวจเชิงรุก</div>
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Blocked Domains Blacklist Table */}
-            <div className="card">
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                🚫 บัญชีดำรายชื่อโดเมนที่ถูกบล็อก (Active Blacklisted Domains)
-              </h3>
+            <section className="command-grid grid-2" style={{ marginBottom: '1.25rem' }}>
+              <div className="card">
+                <div className="panel-heading">
+                  <div>
+                    <h3>Product Heatmap</h3>
+                    <p>กลุ่มผลิตภัณฑ์ที่กำลังเป็นเป้าหมายของโฆษณาเสี่ยง</p>
+                  </div>
+                </div>
+                <div className="status-strip">
+                  {productMix.map((entry) => (
+                    <div key={entry.label} className="status-strip__row">
+                      <div className="status-strip__label">{entry.label}</div>
+                      <div className="status-strip__track">
+                        <div
+                          className="status-strip__fill"
+                          style={{ width: `${entry.percent}%`, background: entry.color }}
+                        />
+                      </div>
+                      <div className="status-strip__value">{entry.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="panel-heading">
+                  <div>
+                    <h3>Live Intel Feed</h3>
+                    <p>เคสล่าสุดที่เพิ่งไหลเข้าห้องปฏิบัติการคดี</p>
+                  </div>
+                </div>
+                <div className="intel-feed">
+                  {recentSignals.map((item) => (
+                    <div key={item.id} className="intel-feed__item">
+                      <div
+                        className="intel-feed__dot"
+                        style={{
+                          background:
+                            (item.aiRiskScore ?? 0) >= 80
+                              ? '#dc2626'
+                              : (item.aiRiskScore ?? 0) >= 50
+                                ? '#f59e0b'
+                                : '#10b981',
+                        }}
+                      />
+                      <div className="intel-feed__meta">
+                        <strong>{item.title}</strong>
+                        <span>{new Date(item.createdAt).toLocaleString('th-TH')}</span>
+                      </div>
+                      <div className="intel-feed__value">{Math.round(item.aiRiskScore ?? 0)}%</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="panel-heading">
+                <div>
+                  <h3>Active Blacklisted Domains</h3>
+                  <p>รายการโดเมนที่พร้อมบังคับใช้ทันทีใน extension และ workflow ด้านกฎหมาย</p>
+                </div>
+              </div>
 
               {blockedDomains.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '2rem' }}>ยังไม่มีประวัติโดเมนที่ถูกสั่งปิดกั้น</p>
+                <div style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>ยังไม่มีโดเมนที่ถูกเพิ่มใน blacklist</div>
               ) : (
                 <div className="table-wrapper">
                   <table>
                     <thead>
                       <tr>
-                        <th>โดเมนที่ถูกระงับ (Domain)</th>
-                        <th>เหตุผลที่ระงับ (Reason)</th>
-                        <th style={{ width: '220px' }}>วันที่เพิ่มเข้าบัญชีดำ</th>
+                        <th>Domain</th>
+                        <th>เหตุผล</th>
+                        <th>วันที่บล็อก</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {blockedDomains.map((d) => (
-                        <tr key={d.id}>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-danger)' }}>
-                            ❌ {d.domain}
+                      {blockedDomains.map((domain) => (
+                        <tr key={domain.id}>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-danger)' }}>
+                            {domain.domain}
                           </td>
-                          <td style={{ fontSize: '0.9rem' }}>{d.reason}</td>
-                          <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            {new Date(d.blockedAt).toLocaleString('th-TH')}
-                          </td>
+                          <td>{domain.reason}</td>
+                          <td>{new Date(domain.blockedAt).toLocaleString('th-TH')}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-            </div>
-          </div>
+            </section>
+          </>
         )}
       </main>
     </div>
