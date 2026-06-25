@@ -16,6 +16,7 @@ async function main() {
   await prisma.case.deleteMany({});
   await prisma.lawRule.deleteMany({});
   await prisma.blockedDomain.deleteMany({});
+  await prisma.domainAllowlist.deleteMany({});
   await prisma.user.deleteMany({});
 
   console.log('Cleaned database.');
@@ -126,6 +127,44 @@ async function main() {
   });
 
   console.log('Seeded blocked domains.');
+
+  await prisma.domainAllowlist.createMany({
+    data: [
+      {
+        domain: 'fda.moph.go.th',
+        listType: 'TRUSTED_OFFICIAL',
+        action: 'SKIP_SCAN',
+        reason: 'Official FDA domain',
+        notes: 'Trusted source for regulatory verification',
+      },
+      {
+        domain: 'food.fda.moph.go.th',
+        listType: 'TRUSTED_OFFICIAL',
+        action: 'SKIP_SCAN',
+        reason: 'Official FDA food portal',
+      },
+      {
+        domain: 'shopee.co.th',
+        listType: 'MARKETPLACE',
+        action: 'REPORT_ONLY',
+        reason: 'Marketplace listing pages should be reported, not domain-blocked',
+      },
+      {
+        domain: 'lazada.co.th',
+        listType: 'MARKETPLACE',
+        action: 'REPORT_ONLY',
+        reason: 'Marketplace listing pages should be reported, not domain-blocked',
+      },
+      {
+        domain: 'facebook.com',
+        listType: 'PLATFORM',
+        action: 'NO_AUTO_BLOCK',
+        reason: 'Platform domain; allow scanning but suppress whole-domain auto-block',
+      },
+    ],
+  });
+
+  console.log('Seeded allowlist entries.');
 
   // 5. Create Sample Cases
   await prisma.case.create({

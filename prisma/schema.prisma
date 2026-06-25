@@ -45,6 +45,17 @@ model GlobalConfig {
   riskLevel String @default("MANUAL") // MANUAL, AUTO_DETECT, AUTO_BLOCK
 }
 
+model DomainAllowlist {
+  id          Int      @id @default(autoincrement())
+  domain      String   @unique
+  listType    String
+  action      String
+  reason      String
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 // Enums removed; using string literals for risk levels and block status
 
 model Case {
