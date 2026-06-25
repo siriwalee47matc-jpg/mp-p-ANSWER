@@ -51,8 +51,26 @@ async function syncAllowlist() {
   }
 }
 
+async function syncRiskLevel() {
+  try {
+    const res = await fetch('http://localhost:3001/config/risk-level');
+    if (!res.ok) throw new Error('Failed to fetch risk level');
+    const config = await res.json();
+    if (config && config.riskLevel) {
+      const autoScan = config.riskLevel !== 'MANUAL';
+      await chrome.storage.local.set({ 
+        riskLevel: config.riskLevel,
+        autoScan
+      });
+      console.log('Synced global risk level:', config.riskLevel);
+    }
+  } catch (err) {
+    console.error('Error syncing global risk level:', err);
+  }
+}
+
 function shouldScanUrl(urlStr: string) {
-  return urlStr.startsWith('http://') || urlStr.startsWith('https://');
+  return urlStr.startsWith('http://') || urlStr.startsWith('https://') || urlStr.startsWith('file://');
 }
 
 function normalizeDomain(urlStr: string) {
@@ -107,8 +125,6 @@ function buildAutoBlockDecision(aiResult: any, riskLevel: string, allowlistEntry
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  syncBlockedDomains();
-  syncAllowlist();
   chrome.storage.local.set({
     extensionMode: 'CONSUMER',
     autoScan: true,
@@ -116,6 +132,10 @@ chrome.runtime.onInstalled.addListener(() => {
     riskLogs: [],
     scanHistory: {},
     allowlistDomains: [],
+  }, () => {
+    syncBlockedDomains();
+    syncAllowlist();
+    syncRiskLevel();
   });
 });
 
@@ -126,6 +146,7 @@ chrome.alarms.create('sync_allowlist_alarm', { periodInMinutes: 2 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'sync_domains_alarm') {
     syncBlockedDomains();
+    syncRiskLevel();
   } else if (alarm.name === 'sync_allowlist_alarm') {
     syncAllowlist();
   }
@@ -189,12 +210,16 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     if (allowlistEntry?.action === 'SKIP_SCAN') return;
 
     const riskLevel = domainData.riskLevel || 'AUTO_DETECT';
+    if (riskLevel === 'MANUAL') return;
+
     const scanHistory = domainData.scanHistory || {};
     const historyKey = `${hostname}:${riskLevel}`;
     const now = Date.now();
     
     // Cache check: only scan if not scanned in last 1 minute to prevent rapid duplicate requests while browsing
-    if (now - (scanHistory[historyKey] || 0) < 1 * 60 * 1000) return;
+    // Bypass cache check for local testing URLs (localhost, 127.0.0.1, or file://) to make development testing seamless
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || activeTab.url.startsWith('file://') || !hostname;
+    if (!isLocal && (now - (scanHistory[historyKey] || 0) < 1 * 60 * 1000)) return;
 
     let pageSignals: any = null;
     try {
@@ -290,7 +315,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     if (score >= 50) {
       chrome.notifications.create({
         type: 'basic',
-        iconUrl: 'http://localhost:3000/sentinel-logo.jpg',
+        iconUrl: 'logo.png',
         title: `🚨 Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
         message: `พบโฆษณาอาจเข้าข่ายผิดกฎหมายบนหน้าเว็บ:\n${activeTab.title || activeTab.url}\nข้อแนะนำทางกฎหมาย: ${blockDecision.recommendedAction}`,
         priority: 2,

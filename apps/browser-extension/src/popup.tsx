@@ -200,7 +200,7 @@ function Popup() {
 
   const runQuietScan = async (tab: chrome.tabs.Tab | null) => {
     if (!tab || !tab.url) return;
-    if (!tab.url.startsWith('http://') && !tab.url.startsWith('https://')) return;
+    if (!tab.url.startsWith('http://') && !tab.url.startsWith('https://') && !tab.url.startsWith('file://')) return;
     try {
       let pageSnippet = '';
       let fdaNumber = '';
@@ -338,10 +338,12 @@ function Popup() {
 
   const handleRiskLevelChange = (level: 'MANUAL' | 'AUTO_DETECT' | 'AUTO_BLOCK') => {
     setRiskLevel(level);
+    const autoScan = level !== 'MANUAL';
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ riskLevel: level });
+      chrome.storage.local.set({ riskLevel: level, autoScan });
     } else {
       localStorage.setItem('riskLevel', level);
+      localStorage.setItem('autoScan', String(autoScan));
     }
   };
 
