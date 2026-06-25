@@ -221,6 +221,7 @@ export default function CasesPage() {
                   <th>โฆษณาที่ตรวจพบ</th>
                   <th>โดเมนเป้าหมาย</th>
                   <th style={{ width: '150px' }}>ประเภทสินค้า</th>
+                  <th style={{ width: '130px' }}>คะแนนความเสี่ยง</th>
                   <th style={{ width: '140px' }}>ผู้แจ้งเบาะแส</th>
                   <th style={{ width: '180px' }}>สถานะ</th>
                   <th style={{ width: '250px' }}>การดำเนินการ</th>
@@ -250,6 +251,27 @@ export default function CasesPage() {
                       }}>
                         {translateProductType(c.productType)}
                       </span>
+                    </td>
+                    <td>
+                      {c.aiRiskScore !== null && c.aiRiskScore !== undefined ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: c.aiRiskScore >= 80 ? 'var(--color-danger)' : c.aiRiskScore >= 50 ? '#f59e0b' : '#10b981'
+                          }}></span>
+                          <span style={{
+                            fontWeight: 700,
+                            color: c.aiRiskScore >= 80 ? 'var(--color-danger)' : c.aiRiskScore >= 50 ? '#d97706' : '#059669'
+                          }}>
+                            {c.aiRiskScore.toFixed(1)}%
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>ยังไม่ประเมิน</span>
+                      )}
                     </td>
                     <td>
                       <span style={{

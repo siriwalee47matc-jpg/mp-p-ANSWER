@@ -34,7 +34,7 @@ export default function Header() {
     <header className="header flex justify-between align-center">
       <div className="logo-container">
         <div className="logo-icon">🛡️</div>
-        <span>SENTINEL ADs ssk</span>
+        <span>SENTINEL ADS</span>
       </div>
 
       <nav className="flex align-center gap-3">
@@ -80,6 +80,36 @@ export default function Header() {
             }}
           >
             🔍 บันทึกประวัติ (Audit)
+          </a>
+        )}
+
+        {(user.role === 'ADMIN' || user.role === 'REVIEWER' || user.role === 'INSPECTOR') && (
+          <a
+            href="/risk-logs"
+            style={{
+              fontWeight: 500,
+              fontSize: '0.95rem',
+              color: pathname === '/risk-logs' ? 'var(--color-primary)' : 'var(--text-muted)',
+              borderBottom: pathname === '/risk-logs' ? '2px solid var(--color-primary)' : 'none',
+              paddingBottom: '0.25rem',
+            }}
+          >
+            🤖 Risk Logs
+          </a>
+        )}
+
+        {(user.role === 'ADMIN' || user.role === 'REVIEWER') && (
+          <a
+            href="/settings"
+            style={{
+              fontWeight: 500,
+              fontSize: '0.95rem',
+              color: pathname === '/settings' ? 'var(--color-primary)' : 'var(--text-muted)',
+              borderBottom: pathname === '/settings' ? '2px solid var(--color-primary)' : 'none',
+              paddingBottom: '0.25rem',
+            }}
+          >
+            ⚙️ ตั้งค่า
           </a>
         )}
       </nav>
