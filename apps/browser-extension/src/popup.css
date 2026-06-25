@@ -1296,4 +1296,211 @@ html, body {
   transform: translateY(0);
 }
 
+/* 2026 visual refresh overrides */
+:root {
+  --popup-bg-low: linear-gradient(160deg, #f3fff8 0%, #dff8ef 45%, #effdf8 100%);
+  --popup-bg-medium: linear-gradient(160deg, #fff9ef 0%, #ffe6bf 45%, #fff6e6 100%);
+  --popup-bg-high: linear-gradient(160deg, #fff3f1 0%, #ffd9d2 45%, #fff7f5 100%);
+  --popup-ink: #0d2a27;
+  --popup-muted: #46625d;
+  --popup-line: rgba(16, 86, 76, 0.12);
+  --popup-card: rgba(255, 255, 255, 0.78);
+  --popup-shadow: 0 24px 60px rgba(13, 42, 39, 0.18);
+  --popup-primary: linear-gradient(135deg, #047857 0%, #0ea5e9 100%);
+}
+
+html, body {
+  font-family: 'Outfit', 'Kanit', sans-serif;
+  background: transparent;
+}
+
+.popup-container {
+  width: 360px;
+  min-height: 640px;
+  height: 640px;
+  background: var(--popup-bg-low);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: var(--popup-shadow);
+}
+
+.popup-container.has-results {
+  width: 760px;
+}
+
+.popup-container.risk-theme-low {
+  background: var(--popup-bg-low);
+}
+
+.popup-container.risk-theme-medium {
+  background: var(--popup-bg-medium);
+}
+
+.popup-container.risk-theme-high {
+  background: var(--popup-bg-high);
+}
+
+.popup-container::before {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(20, 184, 166, 0.16) 0%, transparent 32%),
+    radial-gradient(circle at 85% 18%, rgba(14, 165, 233, 0.12) 0%, transparent 28%),
+    radial-gradient(circle at 60% 80%, rgba(16, 185, 129, 0.12) 0%, transparent 26%);
+}
+
+.main-panel,
+.side-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.74) 0%, rgba(255, 255, 255, 0.9) 100%);
+  color: var(--popup-ink);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.main-panel {
+  width: 360px;
+  padding: 18px;
+  gap: 14px;
+}
+
+.title,
+.side-panel-title,
+.section-title,
+.info-block-title,
+.law-rule-name {
+  color: var(--popup-ink);
+}
+
+.popup-header,
+.side-panel-header {
+  align-items: center;
+}
+
+.mode-toggle {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--popup-line);
+}
+
+.mode-toggle button {
+  color: var(--popup-muted);
+}
+
+.mode-toggle button.active {
+  background: linear-gradient(135deg, #0f766e 0%, #0ea5e9 100%);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(14, 165, 233, 0.22);
+}
+
+.risk-bar,
+.settings-panel,
+.custom-scan-section,
+.login-section-card,
+.officer-session-card,
+.info-block,
+.log-card,
+.logs-content-panel,
+.push-notification-card {
+  background: var(--popup-card) !important;
+  border: 1px solid var(--popup-line);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+.push-notification-card {
+  position: relative;
+  border-radius: 18px;
+}
+
+.btn-primary,
+.notification-action-btn {
+  background: var(--popup-primary) !important;
+  color: #fff !important;
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 16px 32px rgba(4, 120, 87, 0.22);
+}
+
+.btn-primary:hover,
+.notification-action-btn:hover {
+  filter: brightness(1.03);
+  box-shadow: 0 18px 36px rgba(4, 120, 87, 0.26);
+}
+
+.risk-track {
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.risk-fill {
+  background: linear-gradient(90deg, #34d399 0%, #f59e0b 52%, #ef4444 100%);
+}
+
+.panel-input,
+.login-form input {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 118, 110, 0.14);
+}
+
+.panel-input:focus,
+.login-form input:focus {
+  border-color: rgba(14, 165, 233, 0.6);
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+}
+
+.text-success {
+  color: #047857;
+}
+
+.text-warning {
+  color: #b45309;
+}
+
+.text-danger {
+  color: #b91c1c;
+}
+
+.text-muted {
+  color: #64748b;
+}
+
+.info-row,
+.law-rule-desc,
+.law-rule-penalty,
+.osint-val,
+.log-card-url,
+.log-card-analysis {
+  color: var(--popup-ink);
+}
+
+.logs-title-text,
+.risk-label,
+.info-label,
+.panel-label {
+  color: var(--popup-muted);
+}
+
+.side-panel {
+  width: 400px;
+  padding: 18px;
+}
+
+.osint-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.osint-item {
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(248, 250, 252, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.law-rule-card a {
+  color: #0369a1;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.law-rule-card a:hover {
+  text-decoration: underline;
+}
+
 

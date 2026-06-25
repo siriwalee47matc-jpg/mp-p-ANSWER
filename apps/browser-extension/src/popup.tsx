@@ -101,6 +101,56 @@ function RiskCircle({ score }: { score: number }) {
   );
 }
 
+const getRiskThemeClass = (score: number) => {
+  if (score >= 80) return 'risk-theme-high';
+  if (score >= 50) return 'risk-theme-medium';
+  return 'risk-theme-low';
+};
+
+const getLicenseStatusMeta = (status?: string) => {
+  switch (status) {
+    case 'VALID':
+      return { className: 'text-success', text: '✅ ตรวจสอบแล้วถูกต้อง' };
+    case 'INVALID':
+      return { className: 'text-danger', text: '❌ ตรวจสอบแล้วไม่ถูกต้องหรือหมดอายุ' };
+    case 'CHECK_OFFICIAL_SOURCE':
+      return { className: 'text-warning', text: '🟡 พบเลขแล้ว ต้องยืนยันกับแหล่งทางการ' };
+    case 'NOT_PROVIDED':
+      return { className: 'text-muted', text: '⚪ ไม่พบเลขใบอนุญาตบนหน้าเว็บ' };
+    default:
+      return { className: 'text-muted', text: '⚪ ยังไม่มีผลการตรวจสอบ' };
+  }
+};
+
+const PRODUCT_PATTERNS: Array<{ productType: ProductType; keywords: string[] }> = [
+  { productType: ProductType.DRUG, keywords: ['drug', 'medicine', 'capsule', 'tablet', 'antibiotic', 'ยา'] },
+  { productType: ProductType.COSMETIC, keywords: ['cosmetic', 'serum', 'cream', 'whitening', 'beauty', 'skincare', 'ครีม'] },
+  { productType: ProductType.MEDICAL_DEVICE, keywords: ['medical device', 'test kit', 'monitor', 'mask', 'เครื่องมือแพทย์'] },
+  { productType: ProductType.CLINIC, keywords: ['clinic', 'hospital', 'doctor', 'treatment center', 'คลินิก', 'แพทย์'] },
+  { productType: ProductType.HERBAL, keywords: ['herbal', 'botanical', 'traditional herb', 'สมุนไพร'] },
+  { productType: ProductType.FOOD, keywords: ['food', 'supplement', 'dietary', 'beverage', 'coffee', 'tea', 'อาหาร'] },
+];
+
+const classifyProductType = (text: string) => {
+  const normalized = text.toLowerCase();
+  let best = ProductType.FOOD;
+  let bestScore = -1;
+
+  for (const rule of PRODUCT_PATTERNS) {
+    const score = rule.keywords.reduce(
+      (count, keyword) => count + (normalized.includes(keyword.toLowerCase()) ? 1 : 0),
+      0,
+    );
+
+    if (score > bestScore) {
+      best = rule.productType;
+      bestScore = score;
+    }
+  }
+
+  return best;
+};
+
 function Popup() {
   const [mode, setMode] = useState<Mode>('CONSUMER');
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null);
@@ -115,7 +165,6 @@ function Popup() {
   const [officerToken, setOfficerToken] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [productType] = useState<ProductType>(ProductType.FOOD);
   const [licenseNumber, setLicenseNumber] = useState('');
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
   const [createdCaseId, setCreatedCaseId] = useState<string | null>(null);
@@ -181,7 +230,7 @@ function Popup() {
         body: JSON.stringify({
           title: tab.title || 'โฆษณาต้องสงสัย',
           url: tab.url,
-          productType: ProductType.HERBAL,
+          productType: classifyProductType(`${tab.title || ''}\n${tab.url}\n${pageSnippet}`),
           productLicenseNumber: fdaNumber || undefined,
           evidenceText: pageSnippet || 'แจ้งจากระบบ Ad Shield'
         })
@@ -220,7 +269,7 @@ function Popup() {
                 aiRiskScore: currentTabLog.score,
                 aiAnalysis: currentTabLog.analysis,
                 url: currentTabLog.url,
-                productType: ProductType.HERBAL,
+                productType: currentTabLog.productType || ProductType.FOOD,
                 matchingRules: []
               });
               setDismissedNotification(false);
@@ -330,7 +379,7 @@ function Popup() {
         body: JSON.stringify({
           title: citizenTitle || currentTab.title || 'โฆษณาต้องสงสัย',
           url: currentTab.url,
-          productType: ProductType.HERBAL,
+          productType: classifyProductType(`${citizenTitle || currentTab.title || ''}\n${currentTab.url}\n${pageSnippet}`),
           evidenceText: pageSnippet || 'แจ้งจากระบบ Ad Shield'
         })
       });
@@ -435,7 +484,7 @@ function Popup() {
         body: JSON.stringify({
           title: currentTab.title || 'โฆษณาส่งตรวจจากส่วนขยาย',
           url: currentTab.url,
-          productType,
+          productType: classifyProductType(`${currentTab.title || ''}\n${currentTab.url}\n${pageText}`),
           productLicenseNumber: detectedLicense || licenseNumber || undefined,
           evidenceText: pageText || 'ส่งจาก Extension เจ้าหน้าที่'
         })
@@ -485,7 +534,7 @@ function Popup() {
         body: JSON.stringify({
           title: targetTitle,
           url: targetUrl,
-          productType: ProductType.HERBAL,
+          productType: classifyProductType(`${targetTitle}\n${targetUrl}\n${targetText}`),
           evidenceText: targetText
         })
       });
@@ -526,8 +575,31 @@ function Popup() {
     setShowDetails(false);
   };
 
+  const licenseMeta = getLicenseStatusMeta(aiAnalysisResult?.licenseStatus);
+  const riskThemeClass = getRiskThemeClass(aiAnalysisResult?.aiRiskScore || 0);
+  const investigation = aiAnalysisResult?.whoisInfo || null;
+  const domainRdap = investigation?.domainRdap || null;
+  const ipRdap = investigation?.ipRdap || null;
+  const dnsInfo = investigation?.dns || null;
+  const officialProductSources = aiAnalysisResult?.officialProductSources || investigation?.officialProductSources || [];
+
+  const officialSourcesBlock = officialProductSources.length > 0 ? (
+    <div className="info-block law-info">
+      <h4 className="info-block-title">Official Verification Sources</h4>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {officialProductSources.map((source: any, idx: number) => (
+          <div key={idx} className="law-rule-card">
+            <div className="law-rule-name">{source.label}</div>
+            <div className="law-rule-desc">{source.note}</div>
+            <div className="law-rule-penalty"><a href={source.url} target="_blank" rel="noreferrer">Open official source</a></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
   return (
-    <div className={`popup-container ${showDetails && aiAnalysisResult ? 'has-results' : ''}`}>
+    <div className={`popup-container ${showDetails && aiAnalysisResult ? 'has-results' : ''} ${riskThemeClass}`}>
       {/* Main Panel: Browser Control Panel */}
       <div className="main-panel animate-fade-in">
           {/* Scan steps overlay for Browser Mode */}
@@ -917,8 +989,8 @@ function Popup() {
             {aiAnalysisResult.licenseStatus && (
               <div className="info-row">
                 <span className="info-label">สถานะ อย.:</span>
-                <span className={`info-value ${aiAnalysisResult.licenseStatus === 'VALID' ? 'text-success' : 'text-danger'}`} style={{ fontWeight: 'bold' }}>
-                  {aiAnalysisResult.licenseStatus === 'VALID' ? '✅ ตรวจสอบแล้วถูกต้อง' : '❌ ตรวจสอบแล้วไม่พบ/ไม่ถูกต้อง'}
+                <span className={`info-value ${licenseMeta.className}`} style={{ fontWeight: 'bold' }}>
+                  {licenseMeta.text}
                 </span>
               </div>
             )}
@@ -934,41 +1006,32 @@ function Popup() {
             <div className="osint-grid">
               <div className="osint-item">
                 <span className="info-label">IP Address:</span>
-                <div className="osint-val">{aiAnalysisResult.url?.includes('localhost') ? '127.0.0.1' : '103.24.21.189'}</div>
+                <div className="osint-val">{dnsInfo?.aRecords?.[0] || dnsInfo?.aaaaRecords?.[0] || 'N/A'}</div>
               </div>
               <div className="osint-item">
                 <span className="info-label">ISP Network:</span>
-                <div className="osint-val">{aiAnalysisResult.url?.includes('localhost') ? 'Local Loopback' : 'AIS Fibre Co.'}</div>
+                <div className="osint-val">{ipRdap?.networkName || ipRdap?.handle || 'N/A'}</div>
               </div>
               <div className="osint-item">
                 <span className="info-label">เจ้าของจดทะเบียน:</span>
-                <div className="osint-val">บจก. คอสเมติกพลัสกรุ๊ป</div>
+                <div className="osint-val">{domainRdap?.registrant || domainRdap?.handle || 'N/A'}</div>
               </div>
               <div className="osint-item">
                 <span className="info-label">วันจดทะเบียน:</span>
-                <div className="osint-val">12 มี.ค. 2024</div>
+                <div className="osint-val">{domainRdap?.createdAt || 'N/A'}</div>
               </div>
               <div className="osint-item" style={{ gridColumn: 'span 2' }}>
                 <span className="info-label">อีเมลติดต่อกลับ:</span>
-                <div className="osint-val">owner@herbalbeauty-sales.co.th</div>
+                <div className="osint-val">{domainRdap?.abuseEmail || 'N/A'}</div>
               </div>
               <div className="osint-item" style={{ gridColumn: 'span 2' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span className="info-label">พิกัดแผนที่:</span>
-                    <div className="osint-val">13.7563, 100.5018 (กทม.)</div>
-                  </div>
-                  <button 
-                    className="wallet-btn-redeem"
-                    style={{ background: 'linear-gradient(135deg, #27272a, #000000)', color: '#ffffff', padding: '4px 8px', fontSize: '0.65rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    onClick={() => window.open('https://www.google.com/maps/search/?api=1&query=13.7563,100.5018', '_blank')}
-                  >
-                    📍 แผนที่
-                  </button>
-                </div>
+                <span className="info-label">RDAP Source:</span>
+                <div className="osint-val">{domainRdap?.rdapServer || ipRdap?.source || 'N/A'}</div>
               </div>
             </div>
           </div>
+          {officialSourcesBlock}
+
 
           {aiAnalysisResult.evidenceText && (
             <div className="info-block evidence-info">

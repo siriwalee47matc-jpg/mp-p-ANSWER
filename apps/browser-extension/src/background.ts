@@ -1,6 +1,32 @@
 // Background Service Worker for Sentinel ADS Shield
+export {};
 
-// Fetch and sync blocked domains from NestJS backend
+type AllowlistEntry = {
+  domain: string;
+  listType: 'TRUSTED_OFFICIAL' | 'MARKETPLACE' | 'PLATFORM';
+  action: 'SKIP_SCAN' | 'REPORT_ONLY' | 'NO_AUTO_BLOCK';
+  reason: string;
+};
+
+type ProductType =
+  | 'FOOD'
+  | 'DRUG'
+  | 'COSMETIC'
+  | 'MEDICAL_DEVICE'
+  | 'HERBAL'
+  | 'CLINIC'
+  | 'HAZARDOUS'
+  | 'NARCOTIC';
+
+const PRODUCT_PATTERNS: Array<{ productType: ProductType; keywords: string[] }> = [
+  { productType: 'DRUG', keywords: ['ยา', 'drug', 'tablet', 'capsule', 'medicine', 'antibiotic'] },
+  { productType: 'COSMETIC', keywords: ['cosmetic', 'serum', 'cream', 'whitening', 'beauty', 'skincare', 'ครีม'] },
+  { productType: 'MEDICAL_DEVICE', keywords: ['medical device', 'เครื่องมือแพทย์', 'test kit', 'mask', 'monitor'] },
+  { productType: 'CLINIC', keywords: ['clinic', 'hospital', 'doctor', 'คลินิก', 'แพทย์'] },
+  { productType: 'HERBAL', keywords: ['herbal', 'botanical', 'สมุนไพร'] },
+  { productType: 'FOOD', keywords: ['food', 'supplement', 'ชา', 'coffee', 'beverage', 'อาหาร'] },
+];
+
 async function syncBlockedDomains() {
   try {
     const res = await fetch('http://localhost:3001/domains');
@@ -13,31 +39,100 @@ async function syncBlockedDomains() {
   }
 }
 
-// Run sync on startup and set default settings
+async function syncAllowlist() {
+  try {
+    const res = await fetch('http://localhost:3001/allowlist');
+    if (!res.ok) throw new Error('Failed to fetch allowlist');
+    const allowlist = await res.json();
+    await chrome.storage.local.set({ allowlistDomains: allowlist });
+    console.log('Synced allowlist domains:', allowlist.length);
+  } catch (err) {
+    console.error('Error syncing allowlist:', err);
+  }
+}
+
+function shouldScanUrl(urlStr: string) {
+  return urlStr.startsWith('http://') || urlStr.startsWith('https://');
+}
+
+function normalizeDomain(urlStr: string) {
+  return new URL(urlStr).hostname.replace(/^www\./, '').toLowerCase();
+}
+
+function matchAllowlist(domain: string, entries: AllowlistEntry[]) {
+  return entries.find((entry) => domain === entry.domain || domain.endsWith(`.${entry.domain}`)) || null;
+}
+
+function classifyProductType(text: string): ProductType {
+  const normalized = text.toLowerCase();
+  let best: ProductType = 'FOOD';
+  let bestScore = -1;
+
+  for (const rule of PRODUCT_PATTERNS) {
+    const score = rule.keywords.reduce((count, keyword) => count + (normalized.includes(keyword.toLowerCase()) ? 1 : 0), 0);
+    if (score > bestScore) {
+      best = rule.productType;
+      bestScore = score;
+    }
+  }
+
+  return best;
+}
+
+function buildAutoBlockDecision(aiResult: any, riskLevel: string, allowlistEntry: AllowlistEntry | null) {
+  const score = aiResult.aiRiskScore || 0;
+  const decision = aiResult.enforcementDecision || {};
+  const legalSignals = Array.isArray(aiResult.matchingRules) ? aiResult.matchingRules.length : 0;
+  const hasOfficialLicenseReference = aiResult.licenseStatus === 'CHECK_OFFICIAL_SOURCE';
+  const hasRealOsint = aiResult.whoisInfo?.sourceType === 'REAL_OSINT';
+  const allowlistAction = allowlistEntry?.action || null;
+  const reportOnly = allowlistAction === 'REPORT_ONLY' || allowlistAction === 'NO_AUTO_BLOCK';
+  const skipScan = allowlistAction === 'SKIP_SCAN';
+  const eligible =
+    !skipScan &&
+    !reportOnly &&
+    riskLevel === 'AUTO_BLOCK' &&
+    score >= 85 &&
+    !hasOfficialLicenseReference &&
+    hasRealOsint &&
+    legalSignals >= 1 &&
+    decision.autoBlockEligible === true;
+
+  return {
+    eligible,
+    score,
+    legalSignals,
+    recommendedAction: skipScan ? 'SKIP_SCAN' : reportOnly ? 'REPORT_ONLY' : decision.recommendedAction || 'REVIEW_REQUIRED',
+  };
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   syncBlockedDomains();
+  syncAllowlist();
   chrome.storage.local.set({
-    extensionMode: 'CONSUMER', // default mode
+    extensionMode: 'CONSUMER',
     autoScan: true,
-    riskLevel: 'MANUAL', // default risk level
-    riskLogs: [] // history of auto-scan results
+    riskLevel: 'MANUAL',
+    riskLogs: [],
+    scanHistory: {},
+    allowlistDomains: [],
   });
 });
 
-// Periodic sync every 30 seconds
 chrome.alarms.create('sync_domains_alarm', { periodInMinutes: 0.5 });
-// Periodic auto-scan every 30 seconds (for testing and quick updates)
+chrome.alarms.create('sync_allowlist_alarm', { periodInMinutes: 2 });
 chrome.alarms.create('auto_scan_alarm', { periodInMinutes: 0.5 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'sync_domains_alarm') {
     syncBlockedDomains();
+  } else if (alarm.name === 'sync_allowlist_alarm') {
+    syncAllowlist();
   } else if (alarm.name === 'auto_scan_alarm') {
     runAutoScan();
   }
 });
 
-// Check tabs and notify if domain is blocked
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url) {
     checkAndBlockTab(tabId, tab.url);
@@ -46,106 +141,122 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 async function checkAndBlockTab(tabId: number, urlStr: string) {
   try {
-    const url = new URL(urlStr);
-    const domain = url.hostname.replace('www.', '').toLowerCase();
+    const domain = normalizeDomain(urlStr);
+    const data = await chrome.storage.local.get(['blockedDomains', 'allowlistDomains']);
+    const allowlistEntry = matchAllowlist(domain, data.allowlistDomains || []);
+    if (allowlistEntry?.action === 'SKIP_SCAN') {
+      return;
+    }
 
-    const data = await chrome.storage.local.get(['blockedDomains']);
     const list = data.blockedDomains || [];
-
     const blockedInfo = list.find((d: any) => d.domain === domain);
     if (blockedInfo) {
       setTimeout(() => {
-        chrome.tabs.sendMessage(tabId, {
-          action: 'BLOCK_SCREEN',
-          reason: blockedInfo.reason
-        }).catch(err => {
-          console.log('Failed to notify tab, likely not injected yet:', err);
-        });
+        chrome.tabs
+          .sendMessage(tabId, {
+            action: 'BLOCK_SCREEN',
+            reason: blockedInfo.reason,
+          })
+          .catch((err) => {
+            console.log('Failed to notify tab, likely not injected yet:', err);
+          });
       }, 500);
     }
-  } catch (e) {
-    // Ignore invalid URL protocols (e.g. chrome://)
+  } catch {
+    // Ignore invalid protocols
   }
 }
 
-// Perform active tab scan and call backend cases API for AI analysis
 async function runAutoScan() {
   try {
-    const settings = await chrome.storage.local.get(['riskLevel', 'extensionMode']);
+    const settings = await chrome.storage.local.get(['riskLevel']);
     const riskLevel = settings.riskLevel || 'MANUAL';
-
-    if (riskLevel === 'MANUAL') {
-      return;
-    }
+    if (riskLevel === 'MANUAL') return;
 
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const activeTab = tabs[0];
     if (!activeTab || !activeTab.id || !activeTab.url) return;
+    if (!shouldScanUrl(activeTab.url)) return;
 
-    // Only scan HTTP(S) webpages
-    if (!activeTab.url.startsWith('http://') && !activeTab.url.startsWith('https://')) return;
-
-    // Check if domain is already blocked
-    const hostname = new URL(activeTab.url).hostname.replace('www.', '').toLowerCase();
-    const domainData = await chrome.storage.local.get(['blockedDomains']);
+    const hostname = normalizeDomain(activeTab.url);
+    const domainData = await chrome.storage.local.get(['blockedDomains', 'allowlistDomains', 'scanHistory']);
     const blockedList = domainData.blockedDomains || [];
-    const isBlocked = blockedList.some((d: any) => d.domain === hostname);
-    if (isBlocked) return;
+    if (blockedList.some((d: any) => d.domain === hostname)) return;
 
-    // Execute script on the page to extract text
-    let pageText = '';
-    let fdaNumber = '';
+    const allowlistEntry = matchAllowlist(hostname, domainData.allowlistDomains || []);
+    if (allowlistEntry?.action === 'SKIP_SCAN') return;
+
+    const scanHistory = domainData.scanHistory || {};
+    const historyKey = `${hostname}:${riskLevel}`;
+    const now = Date.now();
+    if (now - (scanHistory[historyKey] || 0) < 3 * 60 * 1000) return;
+
+    let pageSignals: any = null;
     try {
       const results = await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
         func: () => {
           const bodyText = document.body.innerText || '';
-          const match = bodyText.match(/\d{2}-\d-\d{5}-\d-\d{4}/);
+          const fda = bodyText.match(/\d{2}-\d-\d{5}-\d-\d{4}/)?.[0] || '';
+          const imageSignals = Array.from(document.images)
+            .slice(0, 10)
+            .map((img) => [img.alt || '', img.title || '', img.getAttribute('aria-label') || '', img.src.split('/').pop() || ''].join(' '))
+            .join(' | ');
+          const figcaptions = Array.from(document.querySelectorAll('figcaption, [data-testid*=\"caption\"], .caption'))
+            .slice(0, 10)
+            .map((node) => (node.textContent || '').trim())
+            .join(' | ');
           return {
-            text: bodyText.substring(0, 800),
-            fda: match ? match[0] : ''
+            text: bodyText.substring(0, 2500),
+            fda,
+            imageSignalsText: `${imageSignals} | ${figcaptions}`.trim(),
           };
-        }
+        },
       });
-      if (results && results[0] && results[0].result) {
-        pageText = results[0].result.text;
-        fdaNumber = results[0].result.fda;
-      }
-    } catch (e) {
-      console.log('Could not execute script on tab:', e);
+      pageSignals = results?.[0]?.result || null;
+    } catch (err) {
+      console.log('Could not execute script on tab:', err);
       return;
     }
 
-    if (!pageText || pageText.trim().length === 0) return;
+    if (!pageSignals?.text?.trim()) return;
 
-    // POST page context to backend to create a case with SYSTEM reporterRole
+    let evidenceImage: string | undefined;
+    try {
+      evidenceImage = await chrome.tabs.captureVisibleTab(chrome.windows.WINDOW_ID_CURRENT, { format: 'png' });
+    } catch (err) {
+      console.log('Could not capture visible tab:', err);
+    }
+
+    const combinedText = `${activeTab.title || ''}\n${activeTab.url}\n${pageSignals.text}\n${pageSignals.imageSignalsText || ''}`;
+    const productType = classifyProductType(combinedText);
+
     const createRes = await fetch('http://localhost:3001/cases', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: activeTab.title || 'Auto Scanned Page',
         url: activeTab.url,
-        productType: 'HERBAL',
-        evidenceText: pageText,
-        productLicenseNumber: fdaNumber || undefined,
-        reporterRole: 'SYSTEM'
-      })
+        productType,
+        evidenceText: pageSignals.text,
+        evidenceImage,
+        imageSignalsText: pageSignals.imageSignalsText || '',
+        productLicenseNumber: pageSignals.fda || undefined,
+        reporterRole: 'SYSTEM',
+      }),
     });
 
     if (!createRes.ok) throw new Error('Failed to create background case');
     const caseData = await createRes.json();
 
-    // Trigger AI analysis on backend
     const analyzeRes = await fetch(`http://localhost:3001/cases/${caseData.id}/analyze`, {
-      method: 'POST'
+      method: 'POST',
     });
     if (!analyzeRes.ok) throw new Error('AI analysis failed');
     const aiResult = await analyzeRes.json();
     const score = aiResult.aiRiskScore || 0;
+    const blockDecision = buildAutoBlockDecision(aiResult, riskLevel, allowlistEntry);
 
-    // Log the risk scan result in chrome.storage.local
     const logData = await chrome.storage.local.get(['riskLogs']);
     const logs = logData.riskLogs || [];
     const newLog = {
@@ -153,60 +264,68 @@ async function runAutoScan() {
       timestamp: new Date().toISOString(),
       url: activeTab.url,
       title: activeTab.title || 'Auto Scanned Page',
-      score: score,
+      score,
       level: riskLevel,
-      analysis: aiResult.aiAnalysis
+      productType,
+      analysis: aiResult.aiAnalysis,
+      recommendedAction: blockDecision.recommendedAction,
+      autoBlockEligible: blockDecision.eligible,
+      legalSignals: blockDecision.legalSignals,
+      allowlist: allowlistEntry?.action || null,
     };
-    await chrome.storage.local.set({ riskLogs: [newLog, ...logs].slice(0, 30) });
 
-    // Send notifications if score is substantial
+    await chrome.storage.local.set({
+      riskLogs: [newLog, ...logs].slice(0, 30),
+      scanHistory: {
+        ...scanHistory,
+        [historyKey]: now,
+      },
+    });
+
     if (score >= 50) {
-      const transparentPixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+      const transparentPixel =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
       chrome.notifications.create({
         type: 'basic',
         iconUrl: transparentPixel,
-        title: `Ad Shield: ตรวจพบความเสี่ยงระดับ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'}`,
-        message: `คะแนนความเสี่ยง: ${score}% (มาตรการ: ${riskLevel === 'AUTO_BLOCK' ? 'ปิดกั้นทันที' : 'รายงานเท่านั้น'})\nURL: ${activeTab.url}`,
-        priority: 2
+        title: `Ad Shield: risk ${score >= 80 ? 'high' : 'medium'}`,
+        message: `Risk score: ${score}% (Action: ${blockDecision.recommendedAction})\nURL: ${activeTab.url}`,
+        priority: 2,
       });
     }
 
-    // Auto-blocking mechanism
-    if (riskLevel === 'AUTO_BLOCK' && score >= 80) {
-      // POST request to backend block endpoint
+    if (blockDecision.eligible) {
       try {
         await fetch(`http://localhost:3001/block/case/${caseData.id}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ performedByUserId: null })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ performedByUserId: null }),
         });
         await syncBlockedDomains();
       } catch (blockErr) {
         console.error('Error auto-blocking domain:', blockErr);
       }
 
-      // Tell content script to inject block overlay immediately
-      chrome.tabs.sendMessage(activeTab.id, {
-        action: 'BLOCK_SCREEN',
-        reason: `ระบบตรวจพบโฆษณาอวดอ้างสรรพคุณเกินจริงระดับสูงมาก (${score}%) ด้วยระบบสแกนอัตโนมัติ`
-      }).catch(err => {
-        console.log('Failed to send block message to content script:', err);
-      });
+      chrome.tabs
+        .sendMessage(activeTab.id, {
+          action: 'BLOCK_SCREEN',
+          reason: `Auto-blocked after confirmed high-risk signals (${score}%)`,
+        })
+        .catch((err) => {
+          console.log('Failed to send block message to content script:', err);
+        });
     }
   } catch (err) {
     console.error('Background auto-scan error:', err);
   }
 }
 
-// Listen for messages from popup or content script
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === 'SYNC_NOW') {
-    syncBlockedDomains().then(() => sendResponse({ success: true }));
-    return true; // keep channel open for async response
+    Promise.all([syncBlockedDomains(), syncAllowlist()]).then(() => sendResponse({ success: true }));
+    return true;
   }
-  
+
   if (request.action === 'CHECK_DOMAIN') {
     chrome.storage.local.get(['blockedDomains']).then((data) => {
       const list = data.blockedDomains || [];
