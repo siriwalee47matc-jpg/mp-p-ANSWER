@@ -62,6 +62,17 @@ export interface BlockedDomainDto {
   addedByUserId?: number | null;
 }
 
+export interface DomainAllowlistDto {
+  id: number;
+  domain: string;
+  listType: 'TRUSTED_OFFICIAL' | 'MARKETPLACE' | 'PLATFORM';
+  action: 'SKIP_SCAN' | 'REPORT_ONLY' | 'NO_AUTO_BLOCK';
+  reason: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CaseDto {
   id: string;
   title: string;
