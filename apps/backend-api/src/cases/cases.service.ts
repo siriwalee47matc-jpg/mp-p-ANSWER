@@ -367,6 +367,61 @@ export class CasesService {
     };
   }
 
+  async updateAiAnalysis(id: string, aiRiskScore: number, aiAnalysis: string) {
+    const updated = await this.prisma.case.update({
+      where: { id },
+      data: {
+        aiRiskScore,
+        aiAnalysis,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        caseId: id,
+        action: 'AI_RE_ANALYSIS',
+        details: `อัปเดตผลวิเคราะห์ด้วย Real AI: ความเสี่ยง ${aiRiskScore}%`,
+      },
+    });
+
+    return updated;
+  }
+
+  async blockCase(id: string) {
+    const targetCase = await this.findOne(id);
+
+    // Add domain to BlockedDomain list
+    await this.prisma.blockedDomain.upsert({
+      where: { domain: targetCase.domain },
+      update: {
+        reason: `Auto-blocked by system (risk score: ${targetCase.aiRiskScore ?? 'N/A'}%) from case ${id}`,
+      },
+      create: {
+        domain: targetCase.domain,
+        reason: `Auto-blocked by system (risk score: ${targetCase.aiRiskScore ?? 'N/A'}%) from case ${id}`,
+      },
+    });
+
+    // Create BlockLog
+    const blockLog = await this.prisma.blockLog.create({
+      data: {
+        caseId: id,
+        reason: `Auto-blocked by extension AUTO_BLOCK mode (score: ${targetCase.aiRiskScore ?? 0}%)`,
+      },
+    });
+
+    // Create Audit Log
+    await this.prisma.auditLog.create({
+      data: {
+        caseId: id,
+        action: 'AUTO_BLOCK',
+        details: `ระบบ Auto-Block ปิดกั้นโดเมน ${targetCase.domain} โดยอัตโนมัติ คะแนนความเสี่ยง: ${targetCase.aiRiskScore ?? 0}%`,
+      },
+    });
+
+    return { success: true, blockLog, domain: targetCase.domain };
+  }
+
   private generateMockRegistrant(domain: string): string {
     const list = ['WHOIS Privacy Protection Service', 'Global Domains Registrant', 'Private Person', 'Nattawut Sakul', 'Somchai Advertising Co.'];
     const idx = Math.abs(this.hashCode(domain)) % list.length;

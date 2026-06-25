@@ -7,6 +7,7 @@ import { LawsModule } from './laws/laws.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { AiModule } from './ai/ai.module';
 import { BlockModule } from './block/block.module';
+import { ConfigModule } from './config/config.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -19,6 +20,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AuditLogsModule,
     AiModule,
     BlockModule,
+    ConfigModule,
     ScheduleModule.forRoot(),
   ],
 })

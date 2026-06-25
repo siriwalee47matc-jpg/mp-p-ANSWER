@@ -106,3 +106,74 @@ export class CasesController {
     return this.casesService.confirmLaws(id, body.lawRuleIds as number[], req.user);
   }
 }
+
+// ─────────────────────────────────────────────
+// Risk Logs Controller (POST /risk/logs  &  GET /risk/logs)
+// ─────────────────────────────────────────────
+@ApiTags('Risk Logs')
+@Controller('risk')
+export class RiskLogsController {
+  constructor(private casesService: CasesService) {}
+
+  /**
+   * Extension auto-scan ส่ง log เข้ามาที่นี่ (สาธารณะ – ไม่ต้องล็อกอิน)
+   * Body: { url, title, evidenceText, productLicenseNumber? }
+   */
+  @Post('logs')
+  @ApiOperation({ summary: 'รับบันทึกการสแกนอัตโนมัติจาก Extension (Auto-Detect / Auto-Block)' })
+  async logRisk(@Body() body: {
+    url: string;
+    title?: string;
+    evidenceText?: string;
+    productLicenseNumber?: string;
+    riskLevel?: string;
+  }) {
+    // สร้าง Case ด้วย reporterRole = SYSTEM
+    const newCase = await this.casesService.create({
+      title: body.title || `Auto-Scan: ${body.url}`,
+      url: body.url,
+      productType: ProductType.HERBAL, // default – extension จะส่ง product type ถ้ารู้
+      evidenceText: body.evidenceText,
+      productLicenseNumber: body.productLicenseNumber,
+      reporterRole: 'SYSTEM',
+    });
+
+    // Trigger AI analysis ทันที
+    const analyzed = await this.casesService.analyzeCase(newCase.id);
+    return analyzed;
+  }
+
+  /**
+   * Dashboard ดึง risk logs (เคสที่ reporterRole = SYSTEM) เรียงตาม createdAt desc
+   */
+  @Get('logs')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'ดึงรายการ risk logs ของระบบ Auto-Detect (ต้องล็อกอิน)' })
+  async getRiskLogs() {
+    return this.casesService.findAll({ reporterRole: 'SYSTEM' });
+  }
+}
+
+// ─────────────────────────────────────────────
+// Blocks Controller (POST /blocks)
+// ─────────────────────────────────────────────
+@ApiTags('Blocks')
+@Controller('blocks')
+export class BlocksController {
+  constructor(private casesService: CasesService) {}
+
+  /**
+   * Extension Auto-Block ส่งคำขอบล็อก
+   * Body: { tabId?, url, caseId? }
+   * ระบบจะ update blockStatus และ add domain to BlockedDomain list
+   */
+  @Post()
+  @ApiOperation({ summary: 'รับคำขอ Auto-Block จาก Extension (สาธารณะ)' })
+  async submitBlock(@Body() body: { tabId?: number; url?: string; caseId?: string }) {
+    if (body.caseId) {
+      return this.casesService.blockCase(body.caseId);
+    }
+    return { success: false, message: 'caseId is required' };
+  }
+}
