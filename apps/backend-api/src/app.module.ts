@@ -8,6 +8,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { AiModule } from './ai/ai.module';
 import { BlockModule } from './block/block.module';
 import { ConfigModule } from './config/config.module';
+import { AllowlistModule } from './allowlist/allowlist.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -21,6 +22,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AiModule,
     BlockModule,
     ConfigModule,
+    AllowlistModule,
     ScheduleModule.forRoot(),
   ],
 })

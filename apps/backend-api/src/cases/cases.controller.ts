@@ -46,10 +46,11 @@ export class CasesController {
     return this.casesService.create({
       title: body.title,
       url: body.url,
-      productType: body.productType as ProductType,
+      productType: body.productType as ProductType | undefined,
       productLicenseNumber: body.productLicenseNumber,
       evidenceText: body.evidenceText,
       evidenceImage: body.evidenceImage,
+      imageSignalsText: body.imageSignalsText,
       reporterRole,
       reporterId,
     });
@@ -125,15 +126,20 @@ export class RiskLogsController {
     url: string;
     title?: string;
     evidenceText?: string;
+    evidenceImage?: string;
+    imageSignalsText?: string;
     productLicenseNumber?: string;
+    productType?: ProductType;
     riskLevel?: string;
   }) {
     // สร้าง Case ด้วย reporterRole = SYSTEM
     const newCase = await this.casesService.create({
       title: body.title || `Auto-Scan: ${body.url}`,
       url: body.url,
-      productType: ProductType.HERBAL, // default – extension จะส่ง product type ถ้ารู้
+      productType: body.productType,
       evidenceText: body.evidenceText,
+      evidenceImage: body.evidenceImage,
+      imageSignalsText: body.imageSignalsText,
       productLicenseNumber: body.productLicenseNumber,
       reporterRole: 'SYSTEM',
     });
