@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -10,7 +10,7 @@ export class ConfigService {
     let config = await this.prisma.globalConfig.findFirst();
     if (!config) {
       config = await this.prisma.globalConfig.create({
-        data: { riskLevel: 'MANUAL' },
+        data: { riskLevel: 'AUTO_DETECT' },
       });
     }
     return config;

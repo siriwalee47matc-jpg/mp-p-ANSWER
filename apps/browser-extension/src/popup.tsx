@@ -1044,12 +1044,7 @@ function Popup() {
             </div>
           )}
 
-          <div className="info-block ai-info">
-            <h4 className="info-block-title">🤖 ข้อแนะนำการวิเคราะห์ของ AI</h4>
-            <p style={{ fontSize: '0.78rem', color: '#12100e', fontWeight: '600', lineHeight: '1.4', margin: '4px 0', whiteSpace: 'pre-line' }}>
-              {aiAnalysisResult.aiAnalysis}
-            </p>
-          </div>
+
 
 
 

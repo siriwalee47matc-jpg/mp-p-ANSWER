@@ -40,6 +40,7 @@ const PRODUCT_PATTERNS: Array<{ productType: ProductType; keywords: string[] }> 
 ];
 
 let warningBannerInjected = false;
+let warningPopupInjected = false;
 let blockOverlayInjected = false;
 
 function scanPageContent() {
@@ -54,8 +55,13 @@ function scanPageContent() {
       bodyText.toLowerCase().includes(phrase.toLowerCase()),
     );
 
-    if (matchedPhrases.length > 0 && !warningBannerInjected && !blockOverlayInjected) {
-      injectWarningBanner(matchedPhrases);
+    if (matchedPhrases.length > 0 && !blockOverlayInjected) {
+      if (!warningBannerInjected) {
+        injectWarningBanner(matchedPhrases);
+      }
+      if (!warningPopupInjected) {
+        injectWarningPopup(matchedPhrases);
+      }
     }
   });
 }
@@ -70,6 +76,99 @@ function checkDomainBlockedOnLoad() {
       setTimeout(scanPageContent, 1000);
     }
   });
+}
+
+function injectWarningPopup(phrases: string[]) {
+  if (warningPopupInjected) return;
+  warningPopupInjected = true;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'kp-ad-shield-warning-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 46, 43, 0.25);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 2147483646;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "IBM Plex Sans Thai", "Segoe UI", Tahoma, sans-serif;
+  `;
+
+  // Dynamic CSS Animation injected inside document head
+  if (!document.getElementById('kp-ad-shield-animations')) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'kp-ad-shield-animations';
+    styleEl.innerHTML = `
+      @keyframes kpFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes kpScaleUp {
+        from { transform: scale(0.9) translateY(20px); opacity: 0; }
+        to { transform: scale(1) translateY(0); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }
+  overlay.style.animation = 'kpFadeIn 0.3s ease-out';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: relative;
+    width: 90%;
+    max-width: 480px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(244, 251, 248, 0.98) 100%);
+    border: 1px solid rgba(15, 118, 110, 0.22);
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 24px 80px rgba(5, 46, 43, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    color: #052e2b;
+    text-align: center;
+    animation: kpScaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+  `;
+
+  modal.innerHTML = `
+    <button id="warning-close-btn" style="position: absolute; top: 20px; right: 24px; background: transparent; border: none; color: #6f8a87; font-size: 24px; cursor: pointer; transition: color 0.2s; font-weight: 300; line-height: 1;">&times;</button>
+    <div style="font-size: 48px; margin-bottom: 16px; display: inline-block;">⚠️</div>
+    <h2 style="color: #d97706; margin-top: 0; margin-bottom: 12px; font-size: 20px; font-weight: 700; font-family: inherit;">
+      ตรวจพบข้อความโฆษณาต้องสงสัย
+    </h2>
+    <p style="color: #4b6a67; font-size: 14px; line-height: 1.5; margin-bottom: 20px; font-family: inherit;">
+      Sentinel ADS ตรวจพบคำอวดอ้างสรรพคุณสุขภาพที่เข้าข่ายเกินจริงหรืออาจผิดกฎหมายบนหน้าเว็บนี้
+    </p>
+    
+    <div style="background: rgba(230, 255, 248, 0.65); border: 1px solid rgba(13, 148, 136, 0.18); padding: 16px 20px; border-radius: 16px; font-size: 13.5px; color: #0f766e; text-align: left; margin-bottom: 24px; max-height: 100px; overflow-y: auto; font-family: inherit; line-height: 1.6;">
+      <strong style="color: #052e2b;">สัญญาณที่ตรวจพบ:</strong><br/>
+      ${phrases.map(p => `• ${p}`).join('<br/>')}
+    </div>
+    
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="warning-bypass-btn" style="background: #047857; border: none; color: #ffffff; padding: 12px 32px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 14px; transition: all 0.2s; font-family: inherit; box-shadow: 0 4px 14px rgba(4, 120, 87, 0.25);">
+        ยอมรับความเสี่ยงและดูต่อ
+      </button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const bypassBtn = modal.querySelector('#warning-bypass-btn') as HTMLButtonElement;
+  const closeBtn = modal.querySelector('#warning-close-btn') as HTMLButtonElement;
+
+  bypassBtn.onclick = () => {
+    document.body.removeChild(overlay);
+    warningPopupInjected = false;
+    chrome.runtime.sendMessage({ action: 'OPEN_EXTENSION_POPUP' });
+  };
+
+  closeBtn.onclick = () => {
+    document.body.removeChild(overlay);
+    warningPopupInjected = false;
+  };
 }
 
 function injectWarningBanner(phrases: string[]) {

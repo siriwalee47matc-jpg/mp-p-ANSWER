@@ -38,7 +38,10 @@ export class CasesService {
   }) {
     const year = new Date().getFullYear();
     const count = await this.prisma.case.count();
-    const id = `CASE-${year}-${String(count + 1).padStart(3, '0')}`;
+    let num = count + 1;
+    let id = '';
+    let newCase;
+    let attempts = 0;
     const domain = this.extractDomain(dto.url);
     const classification = await this.scanIntelligenceService.analyzeInput({
       title: dto.title,
@@ -54,24 +57,41 @@ export class CasesService {
         : classification.productType;
     const enrichedEvidenceText = [dto.evidenceText || '', classification.imageText || ''].filter(Boolean).join('\n\n');
 
-    const newCase = await this.prisma.case.create({
-      data: {
-        id,
-        title: dto.title,
-        url: dto.url,
-        domain,
-        productType: resolvedProductType,
-        productLicenseNumber: dto.productLicenseNumber || null,
-        evidenceText: enrichedEvidenceText || null,
-        evidenceImage: dto.evidenceImage || null,
-        reporterRole: dto.reporterRole,
-        reporterId: dto.reporterId || null,
-        status:
-          dto.reporterRole === 'CONSUMER' || dto.reporterRole === 'SYSTEM'
-            ? CaseStatus.PENDING
-            : CaseStatus.UNDER_REVIEW,
-      },
-    });
+    while (attempts < 10) {
+      id = `CASE-${year}-${String(num).padStart(3, '0')}`;
+      try {
+        newCase = await this.prisma.case.create({
+          data: {
+            id,
+            title: dto.title,
+            url: dto.url,
+            domain,
+            productType: resolvedProductType,
+            productLicenseNumber: dto.productLicenseNumber || null,
+            evidenceText: enrichedEvidenceText || null,
+            evidenceImage: dto.evidenceImage || null,
+            reporterRole: dto.reporterRole,
+            reporterId: dto.reporterId || null,
+            status:
+              dto.reporterRole === 'CONSUMER' || dto.reporterRole === 'SYSTEM'
+                ? CaseStatus.PENDING
+                : CaseStatus.UNDER_REVIEW,
+          },
+        });
+        break;
+      } catch (err: any) {
+        if (err.code === 'P2002' || err.message?.includes('Unique constraint failed')) {
+          num++;
+          attempts++;
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (!newCase) {
+      throw new Error('Failed to generate a unique case ID after multiple attempts');
+    }
 
     await this.prisma.auditLog.create({
       data: {

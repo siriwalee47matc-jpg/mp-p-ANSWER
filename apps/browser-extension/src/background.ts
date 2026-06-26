@@ -313,7 +313,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     });
 
     if (score >= 50) {
-      chrome.notifications.create({
+      chrome.notifications.create(caseData.id, {
         type: 'basic',
         iconUrl: 'logo.png',
         title: `🚨 Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
@@ -363,4 +363,43 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     });
     return true;
   }
+
+  if (request.action === 'OPEN_EXTENSION_POPUP') {
+    triggerOpenPopup();
+    sendResponse({ success: true });
+    return true;
+  }
+});
+
+function triggerOpenPopup() {
+  if (typeof chrome !== 'undefined' && chrome.action && typeof chrome.action.openPopup === 'function') {
+    chrome.windows.getLastFocused({ populate: false }, (window) => {
+      const windowId = window?.id;
+      try {
+        const options = windowId ? { windowId } : {};
+        chrome.action.openPopup(options, () => {
+          const err = chrome.runtime.lastError;
+          if (err) {
+            console.log('Failed to open action popup, falling back to tab:', err);
+            chrome.tabs.create({
+              url: chrome.runtime.getURL('popup.html')
+            });
+          }
+        });
+      } catch (e) {
+        console.log('Failed to call openPopup, falling back to tab:', e);
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('popup.html')
+        });
+      }
+    });
+  } else {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('popup.html')
+    });
+  }
+}
+
+chrome.notifications.onClicked.addListener((notificationId) => {
+  triggerOpenPopup();
 });
