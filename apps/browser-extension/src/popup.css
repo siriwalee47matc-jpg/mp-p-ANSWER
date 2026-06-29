@@ -3,30 +3,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg-main: #f4fbf8;
-  --bg-panel: rgba(255, 255, 255, 0.82);
-  --bg-panel-strong: rgba(255, 255, 255, 0.96);
-  --bg-soft: rgba(230, 255, 248, 0.74);
-  --border-color: rgba(15, 118, 110, 0.16);
-  --border-strong: rgba(13, 148, 136, 0.32);
+  --bg-main: #fafdfc;
+  --bg-panel: rgba(255, 255, 255, 0.94);
+  --bg-panel-strong: #ffffff;
+  --bg-soft: rgba(254, 243, 199, 0.4); /* soft yellow-gold tint */
+  --border-color: rgba(11, 122, 76, 0.12);
+  --border-strong: rgba(11, 122, 76, 0.28);
 
-  --color-primary: #047857; /* Emerald Green */
-  --color-primary-rgb: 4, 120, 87;
-  --color-secondary: #0f766e;
-  --color-accent: #22c55e;
+  --color-primary: #0b7a4c; /* Forest Green */
+  --color-primary-rgb: 11, 122, 76;
+  --color-secondary: #15803d;
+  --color-accent: #f59e0b; /* Gold/Yellow Accent */
   --color-info: #0284c7;
   --color-success: #16a34a;
   --color-warning: #d97706;
   --color-danger: #dc2626;
 
-  --text-main: #052e2b;
-  --text-muted: #4b6a67;
-  --text-soft: #6f8a87;
+  --text-main: #142d22;
+  --text-muted: #3b5e4f;
+  --text-soft: #5c7c6f;
 
   --font-sans: 'IBM Plex Sans Thai', 'Segoe UI', sans-serif;
   --font-brand: 'Space Grotesk', 'IBM Plex Sans Thai', sans-serif;
 
-  --card-shadow: 0 12px 32px rgba(5, 46, 43, 0.04);
+  --card-shadow: 0 12px 32px rgba(20, 45, 34, 0.04);
+  --gradient-gold: linear-gradient(135deg, #0b7a4c 0%, #f59e0b 100%);
 }
 
 html, body {
@@ -46,16 +47,17 @@ html, body {
   width: 360px;
   min-height: 640px;
   height: 640px;
-  background: radial-gradient(circle at top left, rgba(74, 222, 128, 0.12), transparent 42%),
-              radial-gradient(circle at top right, rgba(6, 182, 212, 0.1), transparent 42%),
-              linear-gradient(180deg, #f6fffb 0%, #eefbf6 100%);
+  background: radial-gradient(circle at top left, rgba(11, 122, 76, 0.12), transparent 45%),
+              radial-gradient(circle at top right, rgba(245, 158, 11, 0.08), transparent 45%),
+              linear-gradient(180deg, #ffffff 0%, #fafdfb 100%);
   border-radius: 16px;
-  box-shadow: 0 24px 80px rgba(5, 46, 43, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+  box-shadow: 0 24px 80px rgba(20, 45, 34, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.8);
   overflow: hidden;
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   border: 1px solid var(--border-color);
-  border-top: 6px solid var(--color-primary); /* Primary Emerald Stripe */
+  border-top: 6px solid #0b7a4c;
+  border-image: linear-gradient(90deg, #0b7a4c, #f59e0b) 1;
   box-sizing: border-box;
 }
 
@@ -298,7 +300,7 @@ html, body {
 .risk-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   font-size: 0.85rem;
 }
 .risk-label {
@@ -308,26 +310,30 @@ html, body {
 }
 .risk-track {
   flex: 1;
-  height: 12px;
+  height: 10px;
   background: #e2e8f0;
-  border-radius: 6px;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   position: relative;
 }
 .risk-fill {
   height: 100%;
   width: 0%;
-  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  border-radius: 6px;
+  transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 999px;
 }
 .risk-fill.low {
-  background: #10b981;
+  background: linear-gradient(90deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
 }
 .risk-fill.medium {
-  background: #f59e0b;
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
 }
 .risk-fill.high {
-  background: #ef4444;
+  background: linear-gradient(90deg, #fb7185 0%, #f43f5e 100%);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.2);
 }
 
 .risk-score {
@@ -339,24 +345,26 @@ html, body {
 .risk-score-badge-label {
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
   display: inline-block;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 .risk-score-badge-label.low {
-  background: #ecfdf5;
+  background: rgba(16, 185, 129, 0.08);
   color: #047857;
-  border: 1px solid #a7f3d0;
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 .risk-score-badge-label.medium {
-  background: #fffbeb;
+  background: rgba(245, 158, 11, 0.08);
   color: #b45309;
-  border: 1px solid #fde68a;
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 .risk-score-badge-label.high {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: rgba(244, 63, 94, 0.08);
+  color: #e11d48;
+  border: 1px solid rgba(244, 63, 94, 0.2);
 }
 
 /* Primary button with Red Accent design */
@@ -848,58 +856,78 @@ html, body {
 
 /* Push Notification Card styles */
 .push-notification-card {
-  animation: bounceInNotification 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
-             shakeNotification 0.6s ease-in-out 0.5s;
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 12px 14px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+  animation: bounceInNotification 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+             shakeNotification 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97) 0.5s;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04), 
+              0 1px 3px rgba(15, 23, 42, 0.02),
+              inset 0 1px 0 rgba(255, 255, 255, 0.6);
   color: #1e293b;
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
   z-index: 10;
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .push-notification-card.high-risk {
-  border: 2px solid #fca5a5;
-  background: #fff5f5;
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  background: linear-gradient(135deg, rgba(255, 241, 242, 0.95) 0%, rgba(255, 228, 230, 0.9) 100%);
+  box-shadow: 0 12px 36px rgba(244, 63, 94, 0.08), 
+              inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 .push-notification-card.medium-risk {
-  border: 2px solid #fde68a;
-  background: #fffbeb;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: linear-gradient(135deg, rgba(255, 251, 235, 0.95) 0%, rgba(254, 243, 199, 0.9) 100%);
+  box-shadow: 0 12px 36px rgba(245, 158, 11, 0.08), 
+              inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 .push-notification-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
-.risk-circle-text {
-  color: #0f172a;
+.push-notification-card.high-risk:hover {
+  box-shadow: 0 16px 40px rgba(244, 63, 94, 0.12);
+}
+.push-notification-card.medium-risk:hover {
+  box-shadow: 0 16px 40px rgba(245, 158, 11, 0.12);
 }
 .notification-action-btn {
-  background: var(--color-primary) !important;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
   color: #ffffff !important;
   border: none;
-  padding: 6px 12px;
-  font-size: 0.72rem;
-  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 0.74rem;
+  border-radius: 8px;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(4, 120, 87, 0.15) !important;
+  box-shadow: 0 3px 8px rgba(5, 150, 105, 0.2) !important;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .notification-action-btn:hover {
-  background: #035e43 !important;
-  box-shadow: 0 4px 10px rgba(4, 120, 87, 0.25) !important;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  box-shadow: 0 5px 12px rgba(5, 150, 105, 0.3) !important;
+  transform: scale(1.02);
+}
+.notification-action-btn:active {
+  transform: scale(0.98);
 }
 
 .risk-circle-container {
   position: relative;
-  width: 54px;
-  height: 54px;
+  width: 62px;
+  height: 62px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -907,8 +935,9 @@ html, body {
 }
 .risk-circle-text {
   position: absolute;
-  font-size: 0.72rem;
+  font-size: 0.65rem;
   font-weight: 800;
+  font-family: var(--font-brand);
 }
 
 .loader-spinner {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req, Inject, forwardRef } from '@nestjs/common';
 import { CasesService } from './cases.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -7,13 +7,16 @@ import { UserRole, CaseStatus, ProductType } from '@kp-ads/shared';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
+import { AiService } from '../ai/ai.service';
 
 @ApiTags('Cases')
 @Controller('cases')
 export class CasesController {
   constructor(
     private casesService: CasesService,
-    private jwtService: JwtService
+    private jwtService: JwtService,
+    @Inject(forwardRef(() => AiService))
+    private aiService: AiService
   ) {}
 
   @Post()
@@ -84,7 +87,7 @@ export class CasesController {
   @Post(':id/analyze')
   @ApiOperation({ summary: 'สั่งให้ AI ตรวจจับพยานหลักฐานและวิเคราะห์ความเสี่ยงอัตโนมัติ (สิทธิ์สาธารณะ)' })
   async analyzeCase(@Param('id') id: string) {
-    return this.casesService.analyzeCase(id);
+    return this.aiService.evaluateCase(id);
   }
 
   @Put(':id/status')
@@ -114,7 +117,11 @@ export class CasesController {
 @ApiTags('Risk Logs')
 @Controller('risk')
 export class RiskLogsController {
-  constructor(private casesService: CasesService) {}
+  constructor(
+    private casesService: CasesService,
+    @Inject(forwardRef(() => AiService))
+    private aiService: AiService
+  ) {}
 
   /**
    * Extension auto-scan ส่ง log เข้ามาที่นี่ (สาธารณะ – ไม่ต้องล็อกอิน)
@@ -145,7 +152,7 @@ export class RiskLogsController {
     });
 
     // Trigger AI analysis ทันที
-    const analyzed = await this.casesService.analyzeCase(newCase.id);
+    const analyzed = await this.aiService.evaluateCase(newCase.id);
     return analyzed;
   }
 

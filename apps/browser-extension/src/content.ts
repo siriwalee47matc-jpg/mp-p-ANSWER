@@ -46,7 +46,7 @@ let blockOverlayInjected = false;
 function scanPageContent() {
   chrome.storage.local.get(['extensionMode', 'autoScan', 'riskLevel'], (settings) => {
     const isAutoScanEnabled = settings.autoScan !== false && settings.riskLevel !== 'MANUAL';
-    if (settings.extensionMode !== 'CONSUMER' || !isAutoScanEnabled) {
+    if (!isAutoScanEnabled) {
       return;
     }
 

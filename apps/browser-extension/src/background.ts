@@ -319,6 +319,18 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
         title: `🚨 Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
         message: `พบโฆษณาอาจเข้าข่ายผิดกฎหมายบนหน้าเว็บ:\n${activeTab.title || activeTab.url}\nข้อแนะนำทางกฎหมาย: ${blockDecision.recommendedAction}`,
         priority: 2,
+      }, (id) => {
+        if (chrome.runtime.lastError) {
+          console.warn('First notification attempt failed, trying fallback:', chrome.runtime.lastError.message);
+          // Fallback with no icon
+          chrome.notifications.create(caseData.id, {
+            type: 'basic',
+            iconUrl: '',
+            title: `🚨 Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
+            message: `พบโฆษณาอาจเข้าข่ายผิดกฎหมายบนหน้าเว็บ:\n${activeTab.title || activeTab.url}\nข้อแนะนำทางกฎหมาย: ${blockDecision.recommendedAction}`,
+            priority: 2,
+          });
+        }
       });
     }
 

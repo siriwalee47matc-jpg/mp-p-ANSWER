@@ -37,17 +37,33 @@ const getProductTypeText = (type: string) => {
 };
 
 const getPenaltyText = (section: string) => {
-  if (section.includes('มาตรา 40')) {
-    return 'โทษ: จำคุกไม่เกิน 3 ปี หรือปรับไม่เกิน 30,000 บาท หรือทั้งจำทั้งปรับ';
+  const sec = section.toLowerCase();
+  if (sec.includes('มาตรา 40') && sec.includes('อาหาร')) {
+    return 'โทษ: จำคุกไม่เกิน 3 ปี หรือปรับไม่เกิน 30,000 บาท หรือทั้งจำทั้งปรับ (มาตรา 70 พ.ร.บ. อาหาร)';
   }
-  if (section.includes('มาตรา 41') && !section.includes('เครื่องสำอาง')) {
-    return 'โทษ: ปรับไม่เกิน 5,000 บาท';
+  if (sec.includes('มาตรา 41') && sec.includes('อาหาร')) {
+    return 'โทษ: ปรับไม่เกิน 5,000 บาท (มาตรา 71 พ.ร.บ. อาหาร)';
   }
-  if (section.includes('มาตรา 113')) {
-    return 'โทษ: ปรับไม่เกิน 100,000 บาท';
+  if (sec.includes('มาตรา 88') && sec.includes('ยา') && !sec.includes('ทวิ')) {
+    return 'โทษ: ปรับไม่เกิน 100,000 บาท (มาตรา 124 พ.ร.บ. ยา)';
   }
-  if (section.includes('เครื่องสำอาง')) {
-    return 'โทษ: จำคุกไม่เกิน 1 ปี หรือปรับไม่เกิน 100,000 บาท หรือทั้งจำทั้งปรับ';
+  if (sec.includes('มาตรา 88 ทวิ') || (sec.includes('88') && sec.includes('ทวิ') && sec.includes('ยา'))) {
+    return 'โทษ: ปรับไม่เกิน 100,000 บาท (มาตรา 124 ทวิ พ.ร.บ. ยา)';
+  }
+  if (sec.includes('เครื่องสำอาง')) {
+    return 'โทษ: จำคุกไม่เกิน 1 ปี หรือปรับไม่เกิน 100,000 บาท หรือทั้งจำทั้งปรับ (มาตรา 84 พ.ร.บ. เครื่องสำอาง)';
+  }
+  if (sec.includes('มาตรา 56') || (sec.includes('56') && sec.includes('แพทย์'))) {
+    return 'โทษ: จำคุกไม่เกิน 1 ปี หรือปรับไม่เกิน 100,000 บาท หรือทั้งจำทั้งปรับ (มาตรา 106 พ.ร.บ. เครื่องมือแพทย์)';
+  }
+  if (sec.includes('มาตรา 57') || (sec.includes('57') && sec.includes('แพทย์'))) {
+    return 'โทษ: จำคุกไม่เกิน 6 เดือน หรือปรับไม่เกิน 50,000 บาท หรือทั้งจำทั้งปรับ (มาตรา 107 พ.ร.บ. เครื่องมือแพทย์)';
+  }
+  if (sec.includes('มาตรา 70') || (sec.includes('70') && sec.includes('สมุนไพร'))) {
+    return 'โทษ: จำคุกไม่เกิน 1 ปี หรือปรับไม่เกิน 100,000 บาท หรือทั้งจำทั้งปรับ (มาตรา 114 พ.ร.บ. ผลิตภัณฑ์สมุนไพร)';
+  }
+  if (sec.includes('มาตรา 71') || (sec.includes('71') && sec.includes('สมุนไพร'))) {
+    return 'โทษ: จำคุกไม่เกิน 6 เดือน หรือปรับไม่เกิน 50,000 บาท หรือทั้งจำทั้งปรับ (มาตรา 115 พ.ร.บ. ผลิตภัณฑ์สมุนไพร)';
   }
   return 'โทษ: ปรับตามพระราชบัญญัติและกฎกระทรวงที่เกี่ยวข้อง';
 };
@@ -61,31 +77,36 @@ const AI_STEPS = [
 
 // Risk circular indicator for Push Notification
 function RiskCircle({ score }: { score: number }) {
-  const [dashoffset, setDashoffset] = useState(138.2); // Circumference for r=22 is 138.2
+  const [dashoffset, setDashoffset] = useState(157.1); // Circumference for r=25 is 157.08
   
   useEffect(() => {
     const timer = setTimeout(() => {
-      const radius = 22;
+      const radius = 25;
       const circumference = 2 * Math.PI * radius;
       setDashoffset(circumference - (score / 100) * circumference);
     }, 150);
     return () => clearTimeout(timer);
   }, [score]);
 
-  const radius = 22;
+  const radius = 25;
   const circumference = 2 * Math.PI * radius;
   
-  let strokeColor = '#10b981'; // Green
-  if (score >= 80) strokeColor = '#ef4444'; // Red
+  let strokeColor = '#10b981'; // Emerald
+  if (score >= 80) strokeColor = '#f43f5e'; // Rose
   else if (score >= 50) strokeColor = '#f59e0b'; // Amber
 
   return (
     <div className="risk-circle-container">
-      <svg width="54" height="54" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="27" cy="27" r={radius} stroke="rgba(0,0,0,0.06)" strokeWidth="4.5" fill="transparent" />
+      <svg width="62" height="62" style={{ transform: 'rotate(-90deg)' }}>
+        <defs>
+          <filter id={`circle-glow-${score}`} x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor={strokeColor} floodOpacity="0.45" />
+          </filter>
+        </defs>
+        <circle cx="31" cy="31" r={radius} stroke="rgba(0,0,0,0.04)" strokeWidth="4.5" fill="transparent" />
         <circle
-          cx="27"
-          cy="27"
+          cx="31"
+          cy="31"
           r={radius}
           stroke={strokeColor}
           strokeWidth="4.5"
@@ -93,10 +114,11 @@ function RiskCircle({ score }: { score: number }) {
           strokeDasharray={circumference}
           strokeDashoffset={dashoffset}
           strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1)' }}
+          filter={`url(#circle-glow-${score})`}
+          style={{ transition: 'stroke-dashoffset 1.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
         />
       </svg>
-      <div className="risk-circle-text">{score}%</div>
+      <div className="risk-circle-text" style={{ color: strokeColor, textShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>{score}%</div>
     </div>
   );
 }

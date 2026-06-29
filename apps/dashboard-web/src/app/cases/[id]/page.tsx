@@ -8,46 +8,226 @@ import { CaseStatus, ProductType, UserRole } from '@kp-ads/shared';
 const renderPenaltyDetails = (section: string) => {
   let prison = 'ไม่มี';
   let fine = 'ปรับตามพระราชบัญญัติที่เกี่ยวข้อง';
+  let penaltySection = '';
+  let violationDetails = '';
   
   const secLower = section.toLowerCase();
-  if (secLower.includes('มาตรา 40')) {
+  if (secLower.includes('มาตรา 40') && secLower.includes('อาหาร')) {
+    violationDetails = 'โฆษณาคุณประโยชน์ คุณภาพ หรือสรรพคุณของอาหารอันเป็นเท็จหรือเป็นการหลอกลวงให้เกิดความหลงเชื่อโดยไม่สมควร';
+    penaltySection = 'มาตรา 70 พ.ร.บ. อาหาร พ.ศ. 2522';
     prison = 'จำคุกไม่เกิน 3 ปี';
     fine = 'ปรับไม่เกิน 30,000 บาท';
-  } else if (secLower.includes('มาตรา 41') && !secLower.includes('เครื่องสำอาง')) {
+  } else if (secLower.includes('มาตรา 41') && secLower.includes('อาหาร')) {
+    violationDetails = 'โฆษณาคุณประโยชน์ คุณภาพ หรือสรรพคุณของอาหารเพื่อประโยชน์ในทางการค้าโดยไม่ได้รับอนุญาตจากผู้อนุญาต';
+    penaltySection = 'มาตรา 71 พ.ร.บ. อาหาร พ.ศ. 2522';
     prison = 'ไม่มี';
     fine = 'ปรับไม่เกิน 5,000 บาท';
-  } else if (secLower.includes('มาตรา 113')) {
+  } else if (secLower.includes('มาตรา 88') && secLower.includes('ยา') && !secLower.includes('ทวิ')) {
+    violationDetails = 'โฆษณาขายยาโอ้อวดสรรพคุณยาหรือส่วนประกอบของยาว่าสามารถบำบัด บรรเทา รักษา หรือป้องกันโรคได้อย่างศักดิ์สิทธิ์หรือหายขาด หรือแสดงสรรพคุณเท็จเกินจริง';
+    penaltySection = 'มาตรา 124 พ.ร.บ. ยา พ.ศ. 2510';
+    prison = 'ไม่มี';
+    fine = 'ปรับไม่เกิน 100,000 บาท';
+  } else if (secLower.includes('มาตรา 88 ทวิ') || (secLower.includes('88') && secLower.includes('ทวิ') && secLower.includes('ยา'))) {
+    violationDetails = 'โฆษณาขายยาโดยไม่ได้รับอนุมัติข้อความ เสียง หรือภาพที่ใช้ในการโฆษณาจากผู้อนุญาต';
+    penaltySection = 'มาตรา 124 ทวิ พ.ร.บ. ยา พ.ศ. 2510';
     prison = 'ไม่มี';
     fine = 'ปรับไม่เกิน 100,000 บาท';
   } else if (secLower.includes('เครื่องสำอาง')) {
+    violationDetails = 'โฆษณาเครื่องสำอางด้วยข้อความที่เป็นเท็จ เกินความจริง หรือก่อให้เกิดความเข้าใจผิดในสาระสำคัญเกี่ยวกับเครื่องสำอาง';
+    penaltySection = 'มาตรา 84 พ.ร.บ. เครื่องสำอาง พ.ศ. 2558';
     prison = 'จำคุกไม่เกิน 1 ปี';
     fine = 'ปรับไม่เกิน 100,000 บาท';
+  } else if (secLower.includes('มาตรา 56') || (secLower.includes('56') && secLower.includes('แพทย์'))) {
+    violationDetails = 'ห้ามโฆษณาเครื่องมือแพทย์โดยแสดงสรรพคุณเท็จ เกินความจริง หรือก่อให้เกิดความเข้าใจผิดในสาระสำคัญเกี่ยวกับเครื่องมือแพทย์';
+    penaltySection = 'มาตรา 106 พ.ร.บ. เครื่องมือแพทย์ พ.ศ. 2551';
+    prison = 'จำคุกไม่เกิน 1 ปี';
+    fine = 'ปรับไม่เกิน 100,000 บาท';
+  } else if (secLower.includes('มาตรา 57') || (secLower.includes('57') && secLower.includes('แพทย์'))) {
+    violationDetails = 'ห้ามโฆษณาเครื่องมือแพทย์โดยไม่ได้รับอนุญาตข้อความ เสียง หรือภาพที่ใช้ในการโฆษณาจากผู้อนุญาต';
+    penaltySection = 'มาตรา 107 พ.ร.บ. เครื่องมือแพทย์ พ.ศ. 2551';
+    prison = 'จำคุกไม่เกิน 6 เดือน';
+    fine = 'ปรับไม่เกิน 50,000 บาท';
+  } else if (secLower.includes('มาตรา 70') || (secLower.includes('70') && secLower.includes('สมุนไพร'))) {
+    violationDetails = 'ห้ามโฆษณาผลิตภัณฑ์สมุนไพรในลักษณะโอ้อวดสรรพคุณว่าสามารถบำบัด บรรเทา รักษา หรือป้องกันโรคได้อย่างหายขาด หรือแสดงสรรพคุณเท็จเกินจริง';
+    penaltySection = 'มาตรา 114 พ.ร.บ. ผลิตภัณฑ์สมุนไพร พ.ศ. 2562';
+    prison = 'จำคุกไม่เกิน 1 ปี';
+    fine = 'ปรับไม่เกิน 100,000 บาท';
+  } else if (secLower.includes('มาตรา 71') || (secLower.includes('71') && secLower.includes('สมุนไพร'))) {
+    violationDetails = 'ห้ามโฆษณาผลิตภัณฑ์สมุนไพรโดยไม่ได้รับอนุญาตข้อความ เสียง หรือภาพที่ใช้ในการโฆษณาจากผู้อนุญาต';
+    penaltySection = 'มาตรา 115 พ.ร.บ. ผลิตภัณฑ์สมุนไพร พ.ศ. 2562';
+    prison = 'จำคุกไม่เกิน 6 เดือน';
+    fine = 'ปรับไม่เกิน 50,000 บาท';
   }
 
   return (
     <div style={{
-      marginTop: '0.75rem',
-      background: 'rgba(0, 0, 0, 0.02)',
-      border: '1px solid var(--border-color)',
-      borderRadius: '8px',
-      padding: '0.75rem'
+      marginTop: '1rem',
+      background: 'rgba(239, 68, 68, 0.02)',
+      border: '1px dashed rgba(239, 68, 68, 0.25)',
+      borderRadius: '10px',
+      padding: '1rem'
     }}>
-      <div style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: 'bold', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        ⚠️ อัตราบทลงโทษสูงสุด:
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#b91c1c', fontWeight: 800, marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <span>🚨 บทกำหนดโทษตามกฎหมาย ({penaltySection})</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.82rem' }}>
-        <div>
-          <span style={{ color: 'var(--text-muted)' }}>จำคุกสูงสุด:</span>
-          <div style={{ fontWeight: 'bold', color: prison !== 'ไม่มี' ? '#b91c1c' : 'var(--text-main)', marginTop: '2px' }}>
+      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.6rem', lineHeight: '1.4' }}>
+        <strong>ฐานความผิด:</strong> {violationDetails || 'ฝ่าฝืนข้อบัญญัติการโฆษณาผลิตภัณฑ์สุขภาพ'}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem' }}>
+        <div style={{ background: '#fff', border: '1px solid var(--border-color)', padding: '0.5rem', borderRadius: '6px' }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block' }}>โทษจำคุกสูงสุด:</span>
+          <span style={{ fontWeight: 'bold', color: prison !== 'ไม่มี' ? '#b91c1c' : 'var(--text-main)' }}>
             {prison}
-          </div>
+          </span>
         </div>
-        <div>
-          <span style={{ color: 'var(--text-muted)' }}>ปรับสูงสุด:</span>
-          <div style={{ fontWeight: 'bold', color: '#b91c1c', marginTop: '2px' }}>
+        <div style={{ background: '#fff', border: '1px solid var(--border-color)', padding: '0.5rem', borderRadius: '6px' }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block' }}>โทษปรับสูงสุด:</span>
+          <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>
             {fine}
-          </div>
+          </span>
         </div>
+      </div>
+      <div style={{ marginTop: '0.5rem', fontSize: '0.72rem', color: '#7f1d1d', background: '#fef2f2', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block' }}>
+        ⚠️ หมายเหตุ: ระวางโทษจำคุก หรือปรับ หรือทั้งจำทั้งปรับ
+      </div>
+    </div>
+  );
+};
+
+const getConciseSuspiciousKeywords = (text: string) => {
+  if (!text) return <span style={{ color: 'var(--text-muted)' }}>ไม่พบข้อความต้องสงสัย</span>;
+  
+  const keywords = [
+    'คุมหิว', 'ลดน้ำหนัก', 'ลดความอ้วน', 'สลายไขมัน', 'ลด\\s*\\d+\\s*กิโล', 'ผอม',
+    'รักษามะเร็ง', 'รักษาโรค', 'หายขาด', 'รักษาได้ทุกโรค', 'เบาหวาน', 'ความดัน',
+    'หัวใจ', 'ไต', 'มะเร็ง', 'สูตรเร่งด่วน', 'ปลอดภัย\\s*100%', 'ไม่มีผลข้างเคียง',
+    'ลดสัดส่วน', 'สลายไขมันเก่า', 'เห็นผลใน 3 วัน'
+  ];
+
+  // Split by spaces, newlines, or sentence structures
+  const segments = text.split(/[\n|,\t;]|\s{2,}/);
+  const matchedSegments: string[] = [];
+
+  segments.forEach(segment => {
+    const cleanSegment = segment.trim();
+    if (!cleanSegment) return;
+    
+    const containsKeyword = keywords.some(kw => {
+      const regex = new RegExp(kw, 'i');
+      return regex.test(cleanSegment);
+    });
+    
+    if (containsKeyword && !matchedSegments.includes(cleanSegment)) {
+      matchedSegments.push(cleanSegment);
+    }
+  });
+
+  if (matchedSegments.length === 0) {
+    return <span style={{ color: 'var(--text-muted)' }}>ไม่พบข้อความต้องสงสัย</span>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {matchedSegments.map((sentence, idx) => {
+        let highlighted = sentence
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+
+        keywords.forEach(kw => {
+          const regex = new RegExp(`(${kw})`, 'gi');
+          highlighted = highlighted.replace(regex, '<mark style="background-color: #fee2e2; color: #b91c1c; padding: 1px 3px; border-radius: 4px; font-weight: bold; border: 1px solid #fecaca;">$1</mark>');
+        });
+
+        return (
+          <div key={idx} style={{
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            fontSize: '0.88rem',
+            color: '#7f1d1d',
+            lineHeight: '1.5',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px'
+          }}>
+            <span style={{ fontSize: '1rem', marginTop: '1px' }}>⚠️</span>
+            <div dangerouslySetInnerHTML={{ __html: highlighted }} />
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const parseAiAnalysis = (analysisText: string) => {
+  if (!analysisText) return null;
+  
+  const lines = analysisText.split('\n');
+  const data: { [key: string]: string } = {};
+  
+  lines.forEach(line => {
+    const part = line.split(':');
+    if (part.length >= 2) {
+      const key = part[0].trim().toLowerCase();
+      const value = part.slice(1).join(':').trim();
+      data[key] = value;
+    }
+  });
+
+  const translations: { [key: string]: { label: string; icon: string; valueColor?: string } } = {
+    'ai risk assessment': { label: 'การประเมินความเสี่ยงของ AI', icon: '🚨', valueColor: '#b91c1c' },
+    'detected claims': { label: 'การกล่าวอ้างที่ตรวจพบ', icon: '📢' },
+    'product classification': { label: 'ประเภทกลุ่มผลิตภัณฑ์', icon: '📦' },
+    'license verification': { label: 'การตรวจสอบใบอนุญาต อย.', icon: '🔑' },
+    'image text ocr': { label: 'ข้อความดึงจากภาพ (OCR)', icon: '📷' },
+    'osint status': { label: 'ความน่าเชื่อถือโดเมน (OSINT)', icon: '🌐' },
+    'allowlist status': { label: 'สถานะบัญชีขาว (Allowlist)', icon: '⚪' },
+    'enforcement recommendation': { label: 'ข้อเสนอแนะมาตรการบังคับใช้', icon: '⚡', valueColor: '#b91c1c' },
+    'legal review': { label: 'มาตรากฎหมายที่แนะนำให้ตรวจสอบ', icon: '⚖️' }
+  };
+
+  return (
+    <div style={{
+      background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.02) 0%, rgba(139, 92, 246, 0.05) 100%)',
+      border: '1px solid rgba(139, 92, 246, 0.2)',
+      borderRadius: '16px',
+      padding: '1.25rem',
+      marginTop: '1.25rem',
+      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.02)'
+    }}>
+      <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        📝 รายงานความเห็นข้อกฎหมาย AI:
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {Object.entries(data).map(([key, value]) => {
+          const trans = translations[key];
+          if (!trans) return null;
+          
+          let displayValue = value;
+          
+          if (key === 'ai risk assessment') {
+            displayValue = value.replace('HIGH', 'เสี่ยงสูง').replace('MEDIUM', 'เสี่ยงปานกลาง').replace('LOW', 'เสี่ยงต่ำ');
+          } else if (key === 'enforcement recommendation') {
+            displayValue = value.replace('AUTO_BLOCK', 'บล็อกอัตโนมัติ (Auto Block)').replace('REPORT_ONLY', 'รายงานอย่างเดียว').replace('NONE', 'ไม่มีมาตรการ');
+          } else if (key === 'allowlist status') {
+            displayValue = value === 'none' ? 'ไม่ได้อยู่ในบัญชีขาว (None)' : value;
+          }
+          
+          return (
+            <div key={key} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.4rem' }}>
+              <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>{trans.icon}</span> {trans.label}:
+              </span>
+              <span style={{ fontWeight: 700, color: trans.valueColor || 'var(--text-main)' }}>
+                {displayValue}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -363,9 +543,9 @@ export default function CaseDetailPage() {
         </div>
 
         <div className="grid grid-2">
-          {/* Left Side: Evidence & Basic details */}
+          {/* Left Side: Evidence & OSINT details */}
           <div className="flex flex-col gap-3">
-            <div className="card card-glow-cyan" style={{ flex: 1 }}>
+            <div className="card card-glow-cyan">
               <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                 📂 พยานหลักฐานที่ตรวจพบ
               </h2>
@@ -384,107 +564,109 @@ export default function CaseDetailPage() {
               </div>
 
               {item.evidenceText && (
-                <div style={{ marginBottom: '1.25rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>เนื้อหาโฆษณาต้องสงสัยบนหน้าเว็บ (Evidence Text):</label>
+                <div style={{
+                  marginBottom: '0.5rem',
+                  border: '1px solid #fca5a5',
+                  borderRadius: '12px',
+                  background: 'rgba(254, 242, 242, 0.3)',
+                  padding: '1.25rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem', fontWeight: 'bold', color: '#b91c1c', fontSize: '0.95rem' }}>
+                    <span>🚨 คำโฆษณาต้องสงสัยที่ตรวจพบ (Suspected Keywords):</span>
+                  </div>
                   <div style={{
-                    background: 'var(--bg-main)',
-                    border: '1px solid var(--border-color)',
-                    padding: '1rem',
+                    background: '#ffffff',
+                    border: '1px solid #fee2e2',
+                    padding: '1.25rem',
                     borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    lineHeight: '1.5',
-                    color: 'var(--text-main)',
-                    whiteSpace: 'pre-wrap'
                   }}>
-                    {item.evidenceText}
+                    {getConciseSuspiciousKeywords(item.evidenceText)}
                   </div>
-                </div>
-              )}
-
-              {whois && (
-                <div style={{ marginBottom: '1.25rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                    🛡️ ข้อมูลความมั่นคงผู้เผยแพร่ (OSINT Security Details)
-                  </label>
-                  <div className="table-wrapper" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', marginBottom: '0.75rem' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <tbody>
-                        <tr>
-                          <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', width: '35%', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>ไอพีผู้ให้บริการ (IP Address)</td>
-                          <td style={{ fontFamily: 'var(--font-mono)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.ipAddress || 'ไม่พบข้อมูล'}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>ISP Network</td>
-                          <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.isp || 'ไม่พบข้อมูล'}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>เจ้าของจดทะเบียน (Registrant)</td>
-                          <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.registrantName || 'ไม่พบข้อมูล'}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>วันจดทะเบียน (Creation Date)</td>
-                          <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.creationDate || 'ไม่พบข้อมูล'}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>อีเมลติดต่อกลับ (Contact Email)</td>
-                          <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>
-                            {whois.contactEmail ? (
-                              <a href={`mailto:${whois.contactEmail}`} style={{ textDecoration: 'underline' }}>{whois.contactEmail}</a>
-                            ) : 'ไม่พบข้อมูล'}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  {whois.coordinates && (
-                    <div style={{ marginTop: '0.5rem' }}>
-                      <a 
-                        href={`https://www.google.com/maps/search/?api=1&query=${whois.coordinates}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="btn btn-secondary"
-                        style={{ 
-                          display: 'inline-flex', 
-                          alignItems: 'center', 
-                          gap: '0.5rem', 
-                          padding: '0.5rem 1rem', 
-                          fontSize: '0.85rem',
-                          textDecoration: 'none'
-                        }}
-                      >
-                        📍 แผนที่ Google Maps (ระบุพิกัดนำทาง)
-                      </a>
+                  
+                  <details style={{ marginTop: '1rem', borderTop: '1px solid #fee2e2', paddingTop: '0.75rem' }}>
+                    <summary style={{ fontSize: '0.78rem', color: '#7f1d1d', cursor: 'pointer', fontWeight: 'bold', userSelect: 'none' }}>
+                      🔎 ดูเนื้อหาโฆษณาฉบับเต็มทั้งหมด (View Full Text)
+                    </summary>
+                    <div style={{
+                      marginTop: '0.5rem',
+                      background: 'var(--bg-main)',
+                      border: '1px solid var(--border-color)',
+                      padding: '1rem',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      lineHeight: '1.5',
+                      color: 'var(--text-main)',
+                      whiteSpace: 'pre-wrap',
+                      maxHeight: '150px',
+                      overflowY: 'auto'
+                    }}>
+                      {item.evidenceText}
                     </div>
-                  )}
-                </div>
-              )}
-
-              {item.evidenceImage && (
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>รูปภาพสกรีนช็อตหลักฐานการกระทําผิด (Evidence Image):</label>
-                  <div style={{
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    background: '#000',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '200px'
-                  }}>
-                    {/* Render Base64 Image */}
-                    <img
-                      src={item.evidenceImage.startsWith('data:image') ? item.evidenceImage : `data:image/png;base64,${item.evidenceImage}`}
-                      alt="พยานหลักฐาน"
-                      style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }}
-                    />
-                  </div>
+                  </details>
                 </div>
               )}
             </div>
+
+            {whois && (
+              <div className="card card-glow-cyan" style={{ flex: 1 }}>
+                <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                  🛡️ ข้อมูลความมั่นคงผู้เผยแพร่ (OSINT Security Details)
+                </h2>
+                <div className="table-wrapper" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', width: '35%', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>ไอพีผู้ให้บริการ (IP Address)</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.ipAddress || 'ไม่พบข้อมูล'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>ISP Network</td>
+                        <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.isp || 'ไม่พบข้อมูล'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>เจ้าของจดทะเบียน (Registrant)</td>
+                        <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.registrantName || 'ไม่พบข้อมูล'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>วันจดทะเบียน (Creation Date)</td>
+                        <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.creationDate || 'ไม่พบข้อมูล'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>อีเมลติดต่อกลับ (Contact Email)</td>
+                        <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>
+                          {whois.contactEmail ? (
+                            <a href={`mailto:${whois.contactEmail}`} style={{ textDecoration: 'underline' }}>{whois.contactEmail}</a>
+                          ) : 'ไม่พบข้อมูล'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                {whois.coordinates && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${whois.coordinates}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="btn btn-secondary"
+                      style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '0.5rem', 
+                        padding: '0.5rem 1rem', 
+                        fontSize: '0.85rem',
+                        textDecoration: 'none'
+                      }}
+                    >
+                      📍 แผนที่ Google Maps (ระบุพิกัดนำทาง)
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Right Side: AI Assistant & WHOIS/Oryor portals */}
+          {/* Right Side: AI Assistant & Screenshot portals */}
           <div className="flex flex-col gap-3">
             <div className="card card-glow-primary">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
@@ -571,22 +753,34 @@ export default function CaseDetailPage() {
                   </div>
 
                   {/* AI Diagnosis Details */}
-                  <div style={{
-                    background: 'rgba(139, 92, 246, 0.05)',
-                    border: '1px solid rgba(139, 92, 246, 0.15)',
-                    padding: '1rem',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    lineHeight: '1.6'
-                  }}>
-                    <div style={{ fontWeight: 600, color: 'var(--color-primary)', marginBottom: '0.4rem', fontSize: '0.95rem' }}>📝 รายงานความเห็นข้อกฎหมาย AI:</div>
-                    <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text-main)' }}>
-                      {item.aiAnalysis}
-                    </div>
-                  </div>
+                  {parseAiAnalysis(item.aiAnalysis)}
                 </div>
               )}
             </div>
+
+            {item.evidenceImage && (
+              <div className="card card-glow-primary" style={{ flex: 1 }}>
+                <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                  📸 ภาพหน้าจอหลักฐาน (Evidence Screenshot)
+                </h2>
+                <div style={{
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  background: '#000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: '200px'
+                }}>
+                  <img
+                    src={item.evidenceImage.startsWith('data:image') ? item.evidenceImage : `data:image/png;base64,${item.evidenceImage}`}
+                    alt="พยานหลักฐาน"
+                    style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

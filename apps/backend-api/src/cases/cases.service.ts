@@ -325,15 +325,12 @@ export class CasesService {
     const claimSignals = classification.claimSignals;
 
     if (claimSignals.includes('weight-loss-fast')) {
-      recommendedLaws.push('มาตรา 40', 'มาตรา 41');
       aiRiskScore += 45;
     }
     if (claimSignals.includes('disease-cure')) {
-      recommendedLaws.push('มาตรา 113');
       aiRiskScore += 55;
     }
     if (claimSignals.includes('fake-authority')) {
-      recommendedLaws.push('มาตรา 41');
       aiRiskScore += 18;
     }
     if (claimSignals.includes('fake-safety')) {
@@ -341,6 +338,25 @@ export class CasesService {
     }
     if (claimSignals.includes('urgency-scarcity')) {
       aiRiskScore += 9;
+    }
+
+    const pType = classification.productType;
+    if (pType === 'FOOD') {
+      if (claimSignals.includes('weight-loss-fast') || claimSignals.includes('disease-cure')) {
+        recommendedLaws.push('มาตรา 40 (อาหาร)');
+      }
+      recommendedLaws.push('มาตรา 41 (อาหาร)');
+    } else if (pType === 'DRUG') {
+      if (claimSignals.includes('disease-cure') || claimSignals.includes('weight-loss-fast')) {
+        recommendedLaws.push('มาตรา 88 (ยา)');
+      }
+      recommendedLaws.push('มาตรา 88 ทวิ (ยา)');
+    } else if (pType === 'COSMETIC') {
+      recommendedLaws.push('มาตรา 41 (เครื่องสำอาง)');
+    } else if (pType === 'MEDICAL_DEVICE') {
+      recommendedLaws.push('มาตรา 56 (เครื่องมือแพทย์)', 'มาตรา 57 (เครื่องมือแพทย์)');
+    } else if (pType === 'HERBAL') {
+      recommendedLaws.push('มาตรา 70 (ผลิตภัณฑ์สมุนไพร)', 'มาตรา 71 (ผลิตภัณฑ์สมุนไพร)');
     }
     if (licenseStatus === 'NOT_PROVIDED') {
       aiRiskScore += 15;

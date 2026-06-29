@@ -72,38 +72,83 @@ async function main() {
   console.log('Seeded users.');
 
   // 3. Create Law Rules
-  const law40 = await prisma.lawRule.create({
+  const law40Food = await prisma.lawRule.create({
     data: {
-      section: 'มาตรา 40',
+      section: 'มาตรา 40 (อาหาร)',
       lawName: 'พ.ร.บ. อาหาร พ.ศ. 2522',
       description: 'ห้ามมิให้ผู้ใดโฆษณาคุณประโยชน์ คุณภาพ หรือสรรพคุณของอาหารอันเป็นเท็จหรือเป็นการหลอกลวงให้เกิดความหลงเชื่อโดยไม่สมควร',
       riskLevel: 'HIGH',
     },
   });
 
-  const law41 = await prisma.lawRule.create({
+  const law41Food = await prisma.lawRule.create({
     data: {
-      section: 'มาตรา 41',
+      section: 'มาตรา 41 (อาหาร)',
       lawName: 'พ.ร.บ. อาหาร พ.ศ. 2522',
-      description: 'ผู้ใดประสงค์จะโฆษณาคุณประโยชน์ คุณภาพ หรือสรรพคุณของอาหารเพื่อประโยชน์ในทางการค้า ต้องนำรายละเอียดเกี่ยวกับการแสดงคุณประโยชน์ คุณภาพ หรือสรรพคุณดังกล่าว... ไปขออนุญาตต่อผู้อนุญาตก่อน',
+      description: 'ผู้ใดประสงค์จะโฆษณาคุณประโยชน์ คุณภาพ หรือสรรพคุณของอาหารเพื่อประโยชน์ในทางการค้า ต้องนำรายละเอียดเกี่ยวกับการแสดงคุณประโยชน์ คุณภาพ หรือสรรพคุณดังกล่าว ไปขออนุญาตต่อผู้อนุญาตก่อน',
       riskLevel: 'MEDIUM',
     },
   });
 
-  const law113 = await prisma.lawRule.create({
+  const law88Drug = await prisma.lawRule.create({
     data: {
-      section: 'มาตรา 113',
+      section: 'มาตรา 88 (ยา)',
       lawName: 'พ.ร.บ. ยา พ.ศ. 2510',
-      description: 'ห้ามมิให้ผู้ใดโฆษณาขายยาโดยแสดงสรรพคุณยาว่าสามารถบำบัด บรรเทา รักษา หรือป้องกันโรคหรืออาการของโรคที่รัฐมนตรีประกาศ... หรือโฆษณาขายยาอันเป็นเท็จหรือเกินความจริง',
+      description: 'ห้ามโฆษณาขายยาโอ้อวดสรรพคุณยาหรือส่วนประกอบของยาว่าสามารถบำบัด บรรเทา รักษา หรือป้องกันโรคได้อย่างศักดิ์สิทธิ์หรือหายขาด หรือแสดงสรรพคุณเท็จเกินจริง',
       riskLevel: 'HIGH',
     },
   });
 
-  const lawCosmetic = await prisma.lawRule.create({
+  const law88BisDrug = await prisma.lawRule.create({
+    data: {
+      section: 'มาตรา 88 ทวิ (ยา)',
+      lawName: 'พ.ร.บ. ยา พ.ศ. 2510',
+      description: 'ห้ามโฆษณาขายยาโดยไม่ได้รับอนุมัติข้อความ เสียง หรือภาพที่ใช้ในการโฆษณาจากผู้อนุญาต',
+      riskLevel: 'MEDIUM',
+    },
+  });
+
+  const law41Cosmetic = await prisma.lawRule.create({
     data: {
       section: 'มาตรา 41 (เครื่องสำอาง)',
       lawName: 'พ.ร.บ. เครื่องสำอาง พ.ศ. 2558',
-      description: 'การโฆษณาเครื่องสำอางต้องไม่ใช้ข้อความที่ไม่เป็นธรรมต่อผู้บริโภคหรือใช้ข้อความที่อาจก่อให้เกิดผลเสียต่อสังคมเป็นส่วนรวม หรือใช้ข้อความที่เป็นเท็จหรือเกินความจริง',
+      description: 'การโฆษณาเครื่องสำอางต้องไม่ใช้ข้อความที่เป็นเท็จ เกินความจริง หรือก่อให้เกิดความเข้าใจผิดในสาระสำคัญเกี่ยวกับเครื่องสำอาง',
+      riskLevel: 'HIGH',
+    },
+  });
+
+  const law56Device = await prisma.lawRule.create({
+    data: {
+      section: 'มาตรา 56 (เครื่องมือแพทย์)',
+      lawName: 'พ.ร.บ. เครื่องมือแพทย์ พ.ศ. 2551',
+      description: 'ห้ามโฆษณาเครื่องมือแพทย์โดยแสดงสรรพคุณเท็จ เกินความจริง หรือก่อให้เกิดความเข้าใจผิดในสาระสำคัญเกี่ยวกับเครื่องมือแพทย์',
+      riskLevel: 'HIGH',
+    },
+  });
+
+  const law57Device = await prisma.lawRule.create({
+    data: {
+      section: 'มาตรา 57 (เครื่องมือแพทย์)',
+      lawName: 'พ.ร.บ. เครื่องมือแพทย์ พ.ศ. 2551',
+      description: 'ห้ามโฆษณาเครื่องมือแพทย์โดยไม่ได้รับอนุญาตข้อความ เสียง หรือภาพที่ใช้ในการโฆษณาจากผู้อนุญาต',
+      riskLevel: 'MEDIUM',
+    },
+  });
+
+  const law70Herbal = await prisma.lawRule.create({
+    data: {
+      section: 'มาตรา 70 (ผลิตภัณฑ์สมุนไพร)',
+      lawName: 'พ.ร.บ. ผลิตภัณฑ์สมุนไพร พ.ศ. 2562',
+      description: 'ห้ามโฆษณาผลิตภัณฑ์สมุนไพรในลักษณะโอ้อวดสรรพคุณว่าสามารถบำบัด บรรเทา รักษา หรือป้องกันโรคได้อย่างหายขาด หรือแสดงสรรพคุณเท็จเกินจริง',
+      riskLevel: 'HIGH',
+    },
+  });
+
+  const law71Herbal = await prisma.lawRule.create({
+    data: {
+      section: 'มาตรา 71 (ผลิตภัณฑ์สมุนไพร)',
+      lawName: 'พ.ร.บ. ผลิตภัณฑ์สมุนไพร พ.ศ. 2562',
+      description: 'ห้ามโฆษณาผลิตภัณฑ์สมุนไพรโดยไม่ได้รับอนุญาตข้อความ เสียง หรือภาพที่ใช้ในการโฆษณาจากผู้อนุญาต',
       riskLevel: 'MEDIUM',
     },
   });
@@ -220,7 +265,7 @@ async function main() {
       reporterRole: 'INSPECTOR',
       reporterId: inspector.id,
       lawRulesConfirmed: {
-        connect: [{ id: law113.id }],
+        connect: [{ id: law70Herbal.id }],
       },
     },
   });

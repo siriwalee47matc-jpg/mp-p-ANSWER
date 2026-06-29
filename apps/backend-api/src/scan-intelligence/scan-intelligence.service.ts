@@ -107,14 +107,21 @@ export class ScanIntelligenceService {
       return '';
     }
 
-    const worker = await createWorker('eng+tha');
     try {
-      const result = await worker.recognize(evidenceImage);
-      return result.data.text?.trim() || '';
-    } catch {
+      const path = require('path');
+      const worker = await createWorker('eng+tha', 1, {
+        langPath: path.resolve(__dirname, '..', '..'),
+        gzip: false,
+      });
+      try {
+        const result = await worker.recognize(evidenceImage);
+        return result.data.text?.trim() || '';
+      } finally {
+        await worker.terminate();
+      }
+    } catch (err) {
+      console.error('[ScanIntelligenceService] Tesseract OCR failed:', err);
       return '';
-    } finally {
-      await worker.terminate();
     }
   }
 }
