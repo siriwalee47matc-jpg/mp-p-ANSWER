@@ -11,6 +11,7 @@ import { ConfigModule } from './config/config.module';
 import { AllowlistModule } from './allowlist/allowlist.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MetricsModule } from './metrics/metrics.module';
+import { FeedbackModule } from './feedback/feedback.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { MetricsModule } from './metrics/metrics.module';
     ConfigModule,
     AllowlistModule,
     MetricsModule,
+    FeedbackModule,
     ScheduleModule.forRoot(),
   ],
 })
