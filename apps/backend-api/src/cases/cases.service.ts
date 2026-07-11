@@ -311,7 +311,7 @@ export class CasesService {
       evidenceImage: item.evidenceImage ?? undefined,
       productLicenseNumber: item.productLicenseNumber ?? undefined,
     });
-    const osintResult = await this.osintService.inspectUrl(item.url);
+    const osintResult = await this.inspectUrlWithTimeout(item.url, item.domain);
     const allowlistEntry = await this.allowlistService.findMatchingDomain(item.domain);
     const officialProductSources = this.lawsService.getOfficialSourcesByProduct(
       classification.productType,
@@ -473,6 +473,28 @@ export class CasesService {
         ],
       },
     };
+  }
+
+  private async inspectUrlWithTimeout(url: string, domain: string) {
+    try {
+      return await Promise.race([
+        this.osintService.inspectUrl(url),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('OSINT request timed out')), 8000);
+        }),
+      ]);
+    } catch (error) {
+      console.warn(`[CasesService] OSINT enrichment timed out or failed for ${domain}:`, error);
+      return {
+        domain,
+        sourceType: 'LIMITED_OSINT',
+        retrievedAt: new Date().toISOString(),
+        officialSources: [],
+        dns: { aRecords: [], aaaaRecords: [], nsRecords: [], mxRecords: [] },
+        domainRdap: null,
+        ipRdap: null,
+      };
+    }
   }
 
   async updateAiAnalysis(id: string, aiRiskScore: number, aiAnalysis: string) {
