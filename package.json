@@ -12,6 +12,7 @@
     "dev:dashboard": "npm run dev --workspace=apps/dashboard-web",
     "dev:extension": "npm run dev --workspace=apps/browser-extension",
     "build:extension": "npm run build --workspace=apps/browser-extension",
+    "package:extension": "node scripts/package-extension.cjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "node scripts/prisma-push.cjs",
     "prisma:seed": "ts-node prisma/seed.ts"
@@ -20,9 +21,21 @@
     "@prisma/client": "^5.12.1"
   },
   "devDependencies": {
+    "@nestjs/common": "^11.1.28",
+    "@nestjs/core": "^11.1.28",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/platform-express": "^11.1.28",
+    "@nestjs/schedule": "^6.1.3",
     "@types/node": "^20.11.30",
+    "archiver": "^8.0.0",
+    "postcss": "^8.5.16",
     "prisma": "^5.12.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.3"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.16"
+    }
   }
 }

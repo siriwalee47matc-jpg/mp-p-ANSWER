@@ -5,6 +5,7 @@ dist/
 *.db-journal
 .env
 *.zip
+!apps/dashboard-web/public/downloads/sentinel-ads-extension.zip
 .DS_Store
 .turbo/
 *.traineddata

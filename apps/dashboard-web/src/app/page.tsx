@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
 
+const chromeWebStoreUrl = process.env.NEXT_PUBLIC_CHROME_WEB_STORE_URL?.trim();
+const extensionDownloadUrl = chromeWebStoreUrl || '/downloads/sentinel-ads-extension.zip';
+
 type PublicMetrics = {
   downloadClicks: number;
   extensionInstalls: number;
@@ -600,16 +603,26 @@ export default function LandingPage() {
               ติดตั้ง Sentinel ADS ส่วนขยาย Chrome ภายในไม่กี่วินาที ฟรี 100% ไม่ต้องสร้างบัญชี
             </p>
 
-            <a href="#" className="lp-btn lp-btn--chrome lp-btn--pulse" id="download-cta-chrome" onClick={trackDownloadClick}>
+            <a
+              href={extensionDownloadUrl}
+              className="lp-btn lp-btn--chrome lp-btn--pulse"
+              id="download-cta-chrome"
+              onClick={trackDownloadClick}
+              {...(!chromeWebStoreUrl ? { download: 'sentinel-ads-extension.zip' } : {})}
+            >
               <ChromeIcon />
-              เพิ่มใน Chrome – ติดตั้งฟรี
+              {chromeWebStoreUrl ? 'เพิ่มใน Chrome – ติดตั้งฟรี' : 'ดาวน์โหลดส่วนขยายสำหรับ Chrome'}
             </a>
+
+            {!chromeWebStoreUrl && (
+              <p className="lp-download__subtitle">
+                หลังดาวน์โหลด ให้แตกไฟล์ เปิด <strong>chrome://extensions</strong> เปิดโหมดนักพัฒนา แล้วเลือก “โหลดส่วนขยายที่ไม่ได้แพ็ก”
+              </p>
+            )}
 
             <p className="lp-download__alts">
               วิธีอื่น:{' '}
-              <a href="#" className="lp-link" id="download-alt-zip" onClick={trackDownloadClick}>ติดตั้งด้วยตนเอง (.zip)</a>
-              {' | '}
-              <a href="#" className="lp-link" id="download-alt-github">ซอร์สโค้ด (GitHub)</a>
+              <a href="/downloads/sentinel-ads-extension.zip" download="sentinel-ads-extension.zip" className="lp-link" id="download-alt-zip" onClick={trackDownloadClick}>ดาวน์โหลดไฟล์ ZIP</a>
             </p>
           </div>
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { CasesService } from '../cases/cases.service';
 
 /**
@@ -301,7 +301,14 @@ export class AiService {
       }
     }
 
-    // Fallback Mock Chat logic if no API key is configured
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[AiService] Gemini chat is not configured or did not return a response.');
+      throw new ServiceUnavailableException(
+        'ผู้ช่วยอัจฉริยะยังไม่พร้อมใช้งาน กรุณาตรวจสอบการตั้งค่า Gemini ของระบบหลังบ้าน',
+      );
+    }
+
+    // Local-development fallback only. Production must never present canned answers as AI output.
     const text = message.toLowerCase();
     let reply = 'ผมช่วยอธิบายการตรวจโฆษณา การจัดการคดี และการตั้งค่าความเสี่ยงได้ ลองพิมพ์ถามใหม่ได้เลยครับ';
     if (text.includes('ความเสี่ยง') || text.includes('risk')) {

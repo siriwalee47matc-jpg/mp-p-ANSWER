@@ -7,11 +7,11 @@
     "build": "tsc && vite build"
   },
   "dependencies": {
+    "@kp-ads/shared": "*",
+    "axios": "^1.6.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@kp-ads/shared": "*",
-    "recharts": "^2.9.0",
-    "axios": "^1.6.0"
+    "recharts": "^3.9.2"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.263",

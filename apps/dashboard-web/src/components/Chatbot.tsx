@@ -36,13 +36,18 @@ export default function Chatbot() {
       const response = await fetch(apiUrl('/ai/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: question, history: messages }),
+        body: JSON.stringify({ message: question, history: messages.slice(-12) }),
       });
       if (response.ok) {
         const data = await response.json();
         setMessages([...newMessages, { role: 'assistant', text: data.reply }]);
       } else {
-        setMessages([...newMessages, { role: 'assistant', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อระบบหลังบ้าน' }]);
+        const data = await response.json().catch(() => null);
+        const message = Array.isArray(data?.message) ? data.message[0] : data?.message;
+        setMessages([...newMessages, {
+          role: 'assistant',
+          text: message || 'ผู้ช่วยอัจฉริยะไม่พร้อมใช้งานในขณะนี้ กรุณาลองใหม่ภายหลัง',
+        }]);
       }
     } catch (error) {
       setMessages([...newMessages, { role: 'assistant', text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ AI หลังบ้านได้' }]);

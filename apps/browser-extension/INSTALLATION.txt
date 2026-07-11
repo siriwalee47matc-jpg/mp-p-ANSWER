@@ -1,0 +1,11 @@
+Sentinel ADS Extension Installation
+
+1. Extract this ZIP file to a permanent folder.
+2. Open chrome://extensions in Google Chrome or Microsoft Edge.
+3. Turn on Developer mode.
+4. Select Load unpacked.
+5. Select the extracted folder that contains manifest.json.
+
+For production one-click installation, publish this package through the Chrome Web Store
+or an approved enterprise browser policy. The extension is preconfigured to use the
+Sentinel ADS production API.
