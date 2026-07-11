@@ -1,5 +1,5 @@
 [build]
-  command   = "npm run build --workspace=apps/dashboard-web"
+  command   = "npm run build --workspace=packages/shared && npm run build --workspace=apps/dashboard-web"
   publish   = "apps/dashboard-web/.next"
 
 [build.environment]
