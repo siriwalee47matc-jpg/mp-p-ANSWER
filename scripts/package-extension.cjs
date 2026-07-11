@@ -1,9 +1,11 @@
-const { ZipArchive } = require('archiver');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
+const { createRequire } = require('module');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
+const dashboardRequire = createRequire(path.join(root, 'apps', 'dashboard-web', 'package.json'));
+const { ZipArchive } = dashboardRequire('archiver');
 const extensionDirectory = path.join(root, 'apps', 'browser-extension');
 const distDirectory = path.join(extensionDirectory, 'dist');
 const installGuide = path.join(extensionDirectory, 'INSTALLATION.txt');
