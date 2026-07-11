@@ -25,7 +25,13 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.startsWith('chrome-extension://')) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.startsWith('chrome-extension://') ||
+        origin.endsWith('.vercel.app') ||
+        /https?:\/\/localhost(:\d+)?$/.test(origin)
+      ) {
         callback(null, true);
         return;
       }

@@ -191,5 +191,129 @@ export class AiService {
   "aiAnalysis": "คำวิเคราะห์เป็นภาษาไทยอย่างละเอียด..."
 }`;
   }
+
+  /**
+   * AI Chat capability for the dashboard assistant.
+   */
+  async chat(message: string, history: any[] = []): Promise<{ reply: string }> {
+    const provider = process.env.AI_PROVIDER;
+    const systemPrompt = `คุณคือผู้ช่วยระบบอัจฉริยะ (AI Assistant) ของระบบ Sentinel ADS (ระบบบล็อกโฆษณาด้านสุขภาพที่ผิดกฎหมายของจังหวัดศรีสะเกษ)
+หน้าที่ของคุณคือช่วยเหลือเจ้าหน้าที่ตรวจการ, นิติกร, ผู้ทบทวน และผู้บริหารในการตอบคำถามเกี่ยวกับ:
+1. การระบุและตรวจจับโฆษณาผลิตภัณฑ์สุขภาพที่ผิดกฎหมาย (เช่น โอ้อวดสรรพคุณเกินจริง, ไม่มีเลข อย., แหล่งที่มาไม่ชัดเจน)
+2. การตีความกฎหมายที่เกี่ยวข้อง (พ.ร.บ. อาหาร พ.ศ. 2522 มาตรา 40-41, พ.ร.บ. ยา, พ.ร.บ. เครื่องสำอาง)
+3. การใช้งานระบบ Sentinel ADS เช่น การบริหารจัดการคดีความ การบล็อกโดเมนอัตโนมัติ การรายงานความเสี่ยง และการดูสถิติต่างๆ
+4. แนะนำขั้นตอนในการตรวจสอบและการดำเนินคดีทางกฎหมาย
+
+กรุณาตอบคำถามอย่างเป็นมิตร มีความเป็นมืออาชีพ และตอบเป็นภาษาไทยอย่างกระชับและสุภาพ`;
+
+    if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
+      try {
+        const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+        const apiKey = process.env.GEMINI_API_KEY;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        const contents = history.map(h => ({
+          role: h.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: h.text }]
+        }));
+        contents.push({ role: 'user', parts: [{ text: message }] });
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const reply = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (reply) return { reply };
+        } else {
+          const errText = await response.text();
+          console.error(`[AiService] Gemini Chat API returned error status ${response.status}: ${errText}`);
+        }
+      } catch (error) {
+        console.error('[AiService] Gemini Chat API failed:', error);
+      }
+    } else if (provider === 'openai' && process.env.OPENAI_API_KEY) {
+      try {
+        const apiKey = process.env.OPENAI_API_KEY;
+        const messages = [{ role: 'system', content: systemPrompt }];
+        history.forEach(h => {
+          messages.push({ role: h.role === 'assistant' ? 'assistant' : 'user', content: h.text });
+        });
+        messages.push({ role: 'user', content: message });
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+            messages
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const reply = result?.choices?.[0]?.message?.content;
+          if (reply) return { reply };
+        }
+      } catch (error) {
+        console.error('[AiService] OpenAI Chat API failed:', error);
+      }
+    } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
+      try {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        const messages = history.map(h => ({
+          role: h.role === 'assistant' ? 'assistant' : 'user',
+          content: h.text
+        }));
+        messages.push({ role: 'user', content: message });
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620',
+            max_tokens: 1000,
+            system: systemPrompt,
+            messages
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const reply = result?.content?.[0]?.text;
+          if (reply) return { reply };
+        }
+      } catch (error) {
+        console.error('[AiService] Anthropic Chat API failed:', error);
+      }
+    }
+
+    // Fallback Mock Chat logic if no API key is configured
+    const text = message.toLowerCase();
+    let reply = 'ผมช่วยอธิบายการตรวจโฆษณา การจัดการคดี และการตั้งค่าความเสี่ยงได้ ลองพิมพ์ถามใหม่ได้เลยครับ';
+    if (text.includes('ความเสี่ยง') || text.includes('risk')) {
+      reply = 'ระบบประเมินจากเนื้อหาโฆษณา ประเภทผลิตภัณฑ์ เลข อย. แหล่งที่มา และสัญญาณทางกฎหมาย จากนั้นจัดระดับเป็นตรวจสอบโดยเจ้าหน้าที่ ตรวจจับอัตโนมัติ หรือปิดกั้นอัตโนมัติ';
+    } else if (text.includes('คดี') || text.includes('ตรวจสอบ')) {
+      reply = 'เริ่มจากหน้าคดี เลือกคดีที่มีคะแนนความเสี่ยงสูง ตรวจหลักฐานและแหล่งข้อมูลทางการ แล้วส่งต่อให้นิติกรยืนยันข้อกฎหมายก่อนดำเนินการ';
+    } else if (text.includes('block') || text.includes('บล็อก')) {
+      reply = 'การปิดกั้นอัตโนมัติใช้กับสัญญาณความเสี่ยงสูงที่ผ่านเงื่อนไขความมั่นใจและรายการยกเว้นเท่านั้น ควรเริ่มจากการตรวจจับอัตโนมัติเพื่อปรับเกณฑ์ให้เหมาะกับหน่วยงาน';
+    } else if (text.includes('สวัสดี') || text.includes('hello') || text.includes('hi')) {
+      reply = 'สวัสดีครับ ผมคือผู้ช่วยอัจฉริยะ Sentinel ADS ระบบเบื้องหลังออนไลน์ปกติและสามารถคุยกับผมได้แล้วครับ!';
+    }
+    return { reply };
+  }
 }
 
