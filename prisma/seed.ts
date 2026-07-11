@@ -5,10 +5,17 @@ import * as crypto from 'crypto';
 const prisma = new PrismaClient();
 
 function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
 }
 
 async function main() {
+  if (process.env.SEED_DEMO_DATA !== 'true') {
+    console.log('Demo seed skipped. Set SEED_DEMO_DATA=true only in an isolated development database.');
+    return;
+  }
+
   console.log('Starting seeding...');
 
   // 1. Clean existing data
