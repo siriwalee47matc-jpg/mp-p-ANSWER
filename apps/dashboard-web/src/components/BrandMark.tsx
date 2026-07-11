@@ -11,8 +11,8 @@ export default function BrandMark({ compact = false }: BrandMarkProps) {
         <Image
           src="/sentinel-logo.jpg"
           alt="Sentinel ADS Sisaket seal"
-          width={compact ? 52 : 104}
-          height={compact ? 52 : 104}
+          width={compact ? 60 : 104}
+          height={compact ? 60 : 104}
           priority
         />
       </div>
