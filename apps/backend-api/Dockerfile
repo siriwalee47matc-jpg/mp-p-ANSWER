@@ -15,6 +15,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/backend-api/node_modules ./apps/backend-api/node_modules
 COPY --from=build /app/apps/backend-api/dist ./apps/backend-api/dist
 COPY --from=build /app/apps/backend-api/package.json ./apps/backend-api/package.json
 COPY --from=build /app/prisma ./prisma
