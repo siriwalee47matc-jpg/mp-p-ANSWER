@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import { API_URL, DASHBOARD_URL } from './config';
 import './popup.css';
 
 export enum ProductType {
@@ -75,10 +76,10 @@ const AI_STEPS = [
   'สแกน IP, ISP, และข้อมูลจดทะเบียน (Threat-v3)'
 ];
 
-// Risk circular indicator for Push Notification
+// ความเสี่ยง circular indicator for Push Notification
 function RiskCircle({ score }: { score: number }) {
   const [dashoffset, setDashoffset] = useState(157.1); // Circumference for r=25 is 157.08
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       const radius = 25;
@@ -90,7 +91,7 @@ function RiskCircle({ score }: { score: number }) {
 
   const radius = 25;
   const circumference = 2 * Math.PI * radius;
-  
+
   let strokeColor = '#10b981'; // Emerald
   if (score >= 80) strokeColor = '#f43f5e'; // Rose
   else if (score >= 50) strokeColor = '#f59e0b'; // Amber
@@ -132,7 +133,7 @@ const getRiskThemeClass = (score: number) => {
 const getLicenseStatusMeta = (status?: string) => {
   switch (status) {
     case 'VALID':
-      return { className: 'text-success', text: '✅ ตรวจสอบแล้วถูกต้อง' };
+      return { className: 'text-success', text: 'ตรวจสอบแล้วถูกต้อง' };
     case 'INVALID':
       return { className: 'text-danger', text: '❌ ตรวจสอบแล้วไม่ถูกต้องหรือหมดอายุ' };
     case 'CHECK_OFFICIAL_SOURCE':
@@ -246,7 +247,7 @@ function Popup() {
         fdaNumber = '10-1-12345-1-0001';
       }
 
-      const res = await fetch('http://localhost:3001/cases', {
+      const res = await fetch(`${API_URL}/cases`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -260,7 +261,7 @@ function Popup() {
       const caseData = await res.json();
       if (!res.ok) return;
 
-      const analyzeRes = await fetch(`http://localhost:3001/cases/${caseData.id}/analyze`, {
+      const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
         method: 'POST'
       });
       const analyzeData = await analyzeRes.json();
@@ -306,7 +307,7 @@ function Popup() {
       const mockTab = {
         id: 1,
         title: 'ผลิตภัณฑ์สมุนไพรลดน้ำหนักสูตรเร่งด่วน ผอมจริงใน 3 วัน ปลอดภัย 100%',
-        url: 'http://localhost:3000/mock-ad-page'
+        url: `${DASHBOARD_URL}/mock-ad-page`
       } as any;
       setCurrentTab(mockTab);
       setCitizenTitle(mockTab.title);
@@ -397,7 +398,7 @@ function Popup() {
       } else {
         pageSnippet = 'นี่คือตัวอย่างข้อความบนหน้าโฆษณาที่ผู้บริโภคพบว่าเข้าข่ายน่าสงสัย เช่น ยาสมุนไพรรักษาโรคสะเก็ดเงิน หายขาดร้อยเปอร์เซ็นต์ในสามวัน!';
       }
-      const res = await fetch('http://localhost:3001/cases', {
+      const res = await fetch(`${API_URL}/cases`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -411,16 +412,16 @@ function Popup() {
       if (!res.ok) throw new Error(caseData.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
       setCreatedCaseId(caseData.id);
 
-      // Call AI analysis
-      const analyzeRes = await fetch(`http://localhost:3001/cases/${caseData.id}/analyze`, {
+      // Call ระบบอัจฉริยะ analysis
+      const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
         method: 'POST'
       });
       const analyzeData = await analyzeRes.json();
-      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การวิเคราะห์ AI ล้มเหลว');
+      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การวิเคราะห์ ระบบอัจฉริยะ ล้มเหลว');
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);
       setShowDetails(true);
-      setMessage({ type: 'success', text: '⚡ AI วิเคราะห์ระดับความเสี่ยงของหน้านี้เรียบร้อยแล้ว!' });
+      setMessage({ type: 'success', text: '⚡ ระบบอัจฉริยะ วิเคราะห์ระดับความเสี่ยงของหน้านี้เรียบร้อยแล้ว!' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'ส่งข้อมูลล้มเหลว โปรดตรวจสอบเซิร์ฟเวอร์' });
     } finally {
@@ -433,14 +434,14 @@ function Popup() {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch('http://localhost:3001/auth/login', {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'รหัสผ่านไม่ถูกต้อง');
-      
+
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         await chrome.storage.local.set({ token: data.token, userName: data.user.name, userRole: data.user.role });
       } else {
@@ -454,12 +455,12 @@ function Popup() {
       setPassword('');
       setMessage({ type: 'success', text: `เข้าสู่ระบบสำเร็จ: ยินดีต้อนรับ ${data.user.name}` });
 
-      // Redirect/Navigate to Dashboard
+      // Redirect/Navigate to หน้าภาพรวม
       setTimeout(() => {
         if (typeof chrome !== 'undefined' && chrome.tabs) {
-          chrome.tabs.create({ url: 'http://localhost:3000/cases' });
+          chrome.tabs.create({ url: `${DASHBOARD_URL}/cases` });
         } else {
-          window.open('http://localhost:3000/cases', '_blank');
+          window.open(`${DASHBOARD_URL}/cases`, '_blank');
         }
       }, 800);
     } catch (err: any) {
@@ -502,7 +503,7 @@ function Popup() {
         setLicenseNumber(detectedLicense);
       }
       // Create case
-      const createRes = await fetch('http://localhost:3001/cases', {
+      const createRes = await fetch(`${API_URL}/cases`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${officerToken}` },
         body: JSON.stringify({
@@ -516,17 +517,17 @@ function Popup() {
       const caseData = await createRes.json();
       if (!createRes.ok) throw new Error(caseData.message || 'บันทึกสร้างเคสล้มเหลว');
       setCreatedCaseId(caseData.id);
-      // AI analysis
-      const analyzeRes = await fetch(`http://localhost:3001/cases/${caseData.id}/analyze`, {
+      // ระบบอัจฉริยะ analysis
+      const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${officerToken}` }
       });
       const analyzeData = await analyzeRes.json();
-      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การเรียก AI วิเคราะห์ล้มเหลว');
+      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การเรียก ระบบอัจฉริยะ วิเคราะห์ล้มเหลว');
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);
       setShowDetails(true);
-      setMessage({ type: 'success', text: `⚡ AI ตรวจพบหลักฐานและประเมินคดี ${caseData.id} เรียบร้อย!` });
+      setMessage({ type: 'success', text: `⚡ ระบบอัจฉริยะ ตรวจพบหลักฐานและประเมินคดี ${caseData.id} เรียบร้อย!` });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {
@@ -536,7 +537,7 @@ function Popup() {
 
   const handleCustomOfficerScan = async () => {
     if (!customUrlInput.trim() && !customAdText.trim()) {
-      setMessage({ type: 'error', text: 'กรุณากรอก URL เว็บไซต์ หรือข้อความโฆษณาที่ต้องการให้ AI สแกน' });
+      setMessage({ type: 'error', text: 'กรุณากรอก URL เว็บไซต์ หรือข้อความโฆษณาที่ต้องการให้ ระบบอัจฉริยะ สแกน' });
       return;
     }
     setLoading(true);
@@ -549,11 +550,11 @@ function Popup() {
       const targetText = customAdText.trim() || `สแกน URL กำหนดเอง: ${customUrlInput}`;
 
       // Create case
-      const createRes = await fetch('http://localhost:3001/cases', {
+      const createRes = await fetch(`${API_URL}/cases`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          Authorization: `Bearer ${officerToken}` 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${officerToken}`
         },
         body: JSON.stringify({
           title: targetTitle,
@@ -566,18 +567,18 @@ function Popup() {
       if (!createRes.ok) throw new Error(caseData.message || 'บันทึกสร้างเคสล้มเหลว');
       setCreatedCaseId(caseData.id);
 
-      // AI analysis
-      const analyzeRes = await fetch(`http://localhost:3001/cases/${caseData.id}/analyze`, {
+      // ระบบอัจฉริยะ analysis
+      const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${officerToken}` }
       });
       const analyzeData = await analyzeRes.json();
-      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การเรียก AI วิเคราะห์ล้มเหลว');
-      
+      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การเรียก ระบบอัจฉริยะ วิเคราะห์ล้มเหลว');
+
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);
       setShowDetails(true);
-      setMessage({ type: 'success', text: `⚡ AI ประเมินคดีแบบกำหนดเองรหัส ${caseData.id} เรียบร้อย!` });
+      setMessage({ type: 'success', text: `⚡ ระบบอัจฉริยะ ประเมินคดีแบบกำหนดเองรหัส ${caseData.id} เรียบร้อย!` });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {
@@ -609,13 +610,13 @@ function Popup() {
 
   const officialSourcesBlock = officialProductSources.length > 0 ? (
     <div className="info-block law-info">
-      <h4 className="info-block-title">Official Verification Sources</h4>
+      <h4 className="info-block-title">การตรวจสอบจากแหล่งข้อมูลทางการ</h4>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {officialProductSources.map((source: any, idx: number) => (
           <div key={idx} className="law-rule-card">
             <div className="law-rule-name">{source.label}</div>
             <div className="law-rule-desc">{source.note}</div>
-            <div className="law-rule-penalty"><a href={source.url} target="_blank" rel="noreferrer">Open official source</a></div>
+            <div className="law-rule-penalty"><a href={source.url} target="_blank" rel="noreferrer">เปิดแหล่งข้อมูลทางการ</a></div>
           </div>
         ))}
       </div>
@@ -648,7 +649,7 @@ function Popup() {
                   return (
                     <div key={idx} className={`radar-step-item ${isDone ? '' : (isActive ? 'active' : 'pending')}`} style={isActive ? { color: '#b91c1c' } : {}}>
                       <span className="radar-step-icon">
-                        {isDone ? '✅' : (isActive ? '🔄' : '⏳')}
+                        {isDone ? 'DONE' : (isActive ? '' : '')}
                       </span>
                       <span>{stepText}</span>
                     </div>
@@ -666,13 +667,13 @@ function Popup() {
                 <span className="subtitle">ระบบเฝ้าระวังโฆษณา กระทรวงสาธารณสุข</span>
               </div>
             </div>
-            <button 
-              className="settings-btn" 
-              onClick={() => setShowSettings(!showSettings)} 
+            <button
+              className="settings-btn"
+              onClick={() => setShowSettings(!showSettings)}
               title="ตั้งค่า (Settings)"
               type="button"
             >
-              ⚙️
+
             </button>
           </div>
 
@@ -680,38 +681,38 @@ function Popup() {
             <div className={`status-badge ${riskLevel !== 'MANUAL' ? 'status-active' : 'status-standby'}`}>
               <span className="status-dot"></span>
               <span className="status-text">
-                {riskLevel !== 'MANUAL' 
-                  ? '🟢 เฝ้าระวังอัตโนมัติ (Auto-Scanning Active)' 
-                  : '🔵 พร้อมสแกนตรวจสอบ (System Standby)'}
+                {riskLevel !== 'MANUAL'
+                  ? 'เฝ้าระวังอัตโนมัติ (กำลังตรวจจับอัตโนมัติ)'
+                  : 'พร้อมสแกนตรวจสอบ (พร้อมตรวจสอบ)'}
               </span>
             </div>
           </div>
 
           {showSettings && (
             <div className="settings-panel animate-slide-down">
-              <h3 className="section-title">⚙️ ตั้งค่าส่วนขยาย (Extension Settings)</h3>
+              <h3 className="section-title">ตั้งค่าส่วนขยาย</h3>
               <div className="input-group">
-                <label className="panel-label">ระดับการจัดการความเสี่ยง (Risk Handling):</label>
-                <select 
+                <label className="panel-label">ระดับการจัดการความเสี่ยง:</label>
+                <select
                   className="panel-input"
-                  value={riskLevel} 
+                  value={riskLevel}
                   onChange={(e) => handleRiskLevelChange(e.target.value as any)}
                 >
-                  <option value="MANUAL">Manual Check (ตรวจจับแบบปกติ)</option>
-                  <option value="AUTO_DETECT">Auto Detect & Report (สแกนและส่งรายงานอัตโนมัติ)</option>
-                  <option value="AUTO_BLOCK">Auto Block & Protect (บล็อกหน้าเว็บเสี่ยงสูงอัตโนมัติ)</option>
+                  <option value="MANUAL">ตรวจสอบโดยเจ้าหน้าที่</option>
+                  <option value="AUTO_DETECT">ตรวจจับและส่งรายงานอัตโนมัติ</option>
+                  <option value="AUTO_BLOCK">ปิดกั้นและคุ้มครองอัตโนมัติ</option>
                 </select>
               </div>
               <div className="input-group" style={{ marginTop: '8px' }}>
-                <label className="panel-label">ระดับการบล็อกโฆษณา (Block Sensitivity):</label>
-                <select 
+                <label className="panel-label">ระดับการบล็อกโฆษณา (ระดับความเข้มงวดในการปิดกั้น):</label>
+                <select
                   className="panel-input"
-                  value={blockLevel} 
+                  value={blockLevel}
                   onChange={(e) => setBlockLevel(e.target.value as any)}
                 >
-                  <option value="NORMAL">Normal (ทั่วไป)</option>
-                  <option value="MEDIUM">Medium (ปานกลาง)</option>
-                  <option value="STRICT">Strict (เข้มงวด)</option>
+                  <option value="NORMAL">ทั่วไป</option>
+                  <option value="MEDIUM">ปานกลาง</option>
+                  <option value="STRICT">เข้มงวด</option>
                 </select>
               </div>
             </div>
@@ -726,20 +727,20 @@ function Popup() {
           {aiAnalysisResult && aiAnalysisResult.aiRiskScore >= 50 && !dismissedNotification && (
             <div className={`push-notification-card ${aiAnalysisResult.aiRiskScore >= 80 ? 'high-risk' : 'medium-risk'}`}>
               <RiskCircle score={aiAnalysisResult.aiRiskScore} />
-              
+
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '1rem' }}>🚨</span>
+                  <span style={{ fontSize: '1rem' }}></span>
                   <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 800, color: '#991b1b' }}>
-                    AI ตรวจพบโฆษณาเกินจริง!
+                    ระบบอัจฉริยะ ตรวจพบโฆษณาเกินจริง!
                   </h4>
                 </div>
                 <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 600, color: '#4b5563', lineHeight: '1.3' }}>
                   พบความอวดอ้างสรรพคุณไม่เป็นธรรมในหน้านี้: {aiAnalysisResult.aiRiskScore >= 80 ? 'ระดับอันตรายสูงมาก' : 'ระดับปานกลาง'}
                 </p>
-                
-                {/* Action button in notification */}
-                <button 
+
+                {/* การดำเนินการ button in notification */}
+                <button
                   className="notification-action-btn"
                   onClick={() => {
                     setShowDetails(true);
@@ -751,13 +752,13 @@ function Popup() {
                     }, 100);
                   }}
                 >
-                  🔍 ดูรายงานวิเคราะห์ ⚖️
+                  ดูรายงานวิเคราะห์ ⚖️
                 </button>
               </div>
 
               {/* Close / Dismiss Button */}
-              <button 
-                onClick={() => setDismissedNotification(true)} 
+              <button
+                onClick={() => setDismissedNotification(true)}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -784,8 +785,8 @@ function Popup() {
                 left: 0,
                 right: 0,
                 height: '4px',
-                background: aiAnalysisResult.aiRiskScore >= 80 
-                  ? 'linear-gradient(90deg, #ef4444, #991b1b)' 
+                background: aiAnalysisResult.aiRiskScore >= 80
+                  ? 'linear-gradient(90deg, #ef4444, #991b1b)'
                   : 'linear-gradient(90deg, #f59e0b, #d97706)',
                 opacity: 0.95
               }} />
@@ -797,8 +798,8 @@ function Popup() {
           <div className="risk-bar">
             <span className="risk-label">ระดับความเสี่ยง:</span>
             <div className="risk-track">
-              <div 
-                className={`risk-fill ${riskFillClass}`} 
+              <div
+                className={`risk-fill ${riskFillClass}`}
                 style={{ width: `${currentRiskScore}%` }}
               ></div>
             </div>
@@ -807,15 +808,15 @@ function Popup() {
             </span>
           </div>
 
-          <button 
-            className={`btn-primary ${!loading ? 'pulse-button' : ''}`} 
-            onClick={() => { 
-              if (mode === 'CONSUMER') { 
-                runRadarScan(handleConsumerScan); 
-              } else { 
-                runRadarScan(handleOfficerScan); 
-              } 
-            }} 
+          <button
+            className={`btn-primary ${!loading ? 'pulse-button' : ''}`}
+            onClick={() => {
+              if (mode === 'CONSUMER') {
+                runRadarScan(handleConsumerScan);
+              } else {
+                runRadarScan(handleOfficerScan);
+              }
+            }}
             disabled={loading}
           >
             {loading ? (
@@ -825,47 +826,47 @@ function Popup() {
               </>
             ) : (
               <>
-                <span>🔍 เริ่มสแกนวิเคราะห์หน้าเว็บนี้ (Scan Now)</span>
+                <span>เริ่มสแกนวิเคราะห์หน้าเว็บนี้ (เริ่มตรวจสอบ)</span>
               </>
             )}
           </button>
 
-          {/* Officer Mode Custom Scan Section & Session Control */}
+          {/* Officer Mode ตรวจสอบแบบกำหนดเอง Section & Session Control */}
           {mode === 'OFFICER' && (
             <>
               {officerToken ? (
                 <>
                   <div className="custom-scan-section">
-                    <h3 className="section-title">🔍 ตรวจสอบข้อมูลแบบกำหนดเอง (Custom Scan)</h3>
+                    <h3 className="section-title">ตรวจสอบข้อมูลแบบกำหนดเอง (ตรวจสอบแบบกำหนดเอง)</h3>
                     <div className="input-group">
                       <label htmlFor="customUrlInput">กล่องใส่ข้อมูลเว็บไซต์ (URL):</label>
-                      <input 
-                        id="customUrlInput" 
-                        className="panel-input" 
-                        type="text" 
-                        placeholder="https://example.com/dangerous-ad" 
+                      <input
+                        id="customUrlInput"
+                        className="panel-input"
+                        type="text"
+                        placeholder="https://example.com/dangerous-ad"
                         value={customUrlInput}
                         onChange={(e) => setCustomUrlInput(e.target.value)}
                       />
                     </div>
                     <div className="input-group" style={{ marginTop: '4px' }}>
                       <label htmlFor="customAdText">กล่องใส่ข้อความโฆษณาเกินจริง:</label>
-                      <textarea 
-                        id="customAdText" 
-                        className="panel-input" 
-                        rows={2} 
-                        placeholder="กรอกข้อความโฆษณาอวดอ้างสรรพคุณเกินจริง..." 
+                      <textarea
+                        id="customAdText"
+                        className="panel-input"
+                        rows={2}
+                        placeholder="กรอกข้อความโฆษณาอวดอ้างสรรพคุณเกินจริง..."
                         value={customAdText}
                         onChange={(e) => setCustomAdText(e.target.value)}
                       />
                     </div>
-                    <button 
-                      className="btn-primary" 
-                      onClick={() => runRadarScan(handleCustomOfficerScan)} 
-                      disabled={loading} 
+                    <button
+                      className="btn-primary"
+                      onClick={() => runRadarScan(handleCustomOfficerScan)}
+                      disabled={loading}
                       style={{ background: 'linear-gradient(135deg, #27272a 0%, #000000 100%)', color: '#ffffff', fontWeight: '700', marginTop: '4px', width: '100%' }}
                     >
-                      🤖 ให้ AI ช่วยตรวจสอบ
+                      ให้ ระบบอัจฉริยะ ช่วยตรวจสอบ
                     </button>
                   </div>
 
@@ -873,21 +874,21 @@ function Popup() {
                     <div style={{ fontSize: '0.75rem', color: '#12100e', textAlign: 'center', fontWeight: 'bold' }}>
                       👮 เจ้าหน้าที่ลงชื่อเข้าใช้งานอยู่
                     </div>
-                    <button 
-                      className="btn-primary" 
+                    <button
+                      className="btn-primary"
                       style={{ background: 'linear-gradient(135deg, #27272a 0%, #000000 100%)', color: '#ffffff', fontWeight: '700', width: '100%', padding: '8px 0', fontSize: '0.8rem' }}
                       onClick={() => {
                         if (typeof chrome !== 'undefined' && chrome.tabs) {
-                          chrome.tabs.create({ url: 'http://localhost:3000/cases' });
+                          chrome.tabs.create({ url: `${DASHBOARD_URL}/cases` });
                         } else {
-                          window.open('http://localhost:3000/cases', '_blank');
+                          window.open(`${DASHBOARD_URL}/cases`, '_blank');
                         }
                       }}
                     >
-                      📊 เข้าสู่หน้าแดชบอร์ดหลัก (Dashboard)
+                      เข้าสู่หน้าแดชบอร์ดหลัก (หน้าภาพรวม)
                     </button>
-                    <button 
-                      className="btn-primary" 
+                    <button
+                      className="btn-primary"
                       style={{ background: 'linear-gradient(135deg, #27272a 0%, #000000 100%)', color: '#ffffff', fontWeight: '700', width: '100%', padding: '6px 0', fontSize: '0.75rem', marginTop: '4px' }}
                       onClick={async () => {
                         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -964,19 +965,19 @@ function Popup() {
           )}
         </div>
 
-      {/* Right Side Panel: AI Detailed analysis report */}
+      {/* Right Side Panel: ระบบอัจฉริยะ Detailed analysis report */}
       {showDetails && aiAnalysisResult && (
         <div className="side-panel animate-slide-down">
           <div className="side-panel-header">
-            <h3 className="side-panel-title">📋 รายงานวิเคราะห์หน้าเว็บด้วย AI</h3>
+            <h3 className="side-panel-title">📋 รายงานวิเคราะห์หน้าเว็บด้วย ระบบอัจฉริยะ</h3>
             <button className="btn-close-side" onClick={() => setShowDetails(false)} title="ปิดรายงาน">✕</button>
           </div>
-          
+
           <div className="risk-bar" style={{ marginTop: '4px', gap: '6px' }}>
             <span className="risk-label" style={{ fontSize: '0.78rem' }}>ระดับความเสี่ยง:</span>
             <div className="risk-track" style={{ height: '10px' }}>
-              <div 
-                className={`risk-fill ${aiAnalysisResult.aiRiskScore >= 80 ? 'high' : aiAnalysisResult.aiRiskScore >= 50 ? 'medium' : 'low'}`} 
+              <div
+                className={`risk-fill ${aiAnalysisResult.aiRiskScore >= 80 ? 'high' : aiAnalysisResult.aiRiskScore >= 50 ? 'medium' : 'low'}`}
                 style={{ width: `${aiAnalysisResult.aiRiskScore || 0}%` }}
               ></div>
             </div>
@@ -1011,16 +1012,16 @@ function Popup() {
             </div>
           </div>
 
-          {/* Deep OSINT Grid */}
+          {/* ข้อมูลสืบค้นแหล่งเปิด Grid */}
           <div className="info-block product-info" style={{ background: '#ffffff', borderColor: 'rgba(0, 0, 0, 0.08)' }}>
-            <h4 className="info-block-title">🔎 Deep OSINT Panel (ข้อมูลความมั่นคงผู้เผยแพร่)</h4>
+            <h4 className="info-block-title">🔎 ข้อมูลสืบค้นแหล่งเปิดของผู้เผยแพร่</h4>
             <div className="osint-grid">
               <div className="osint-item">
-                <span className="info-label">IP Address:</span>
+                <span className="info-label">หมายเลขไอพี:</span>
                 <div className="osint-val">{dnsInfo?.aRecords?.[0] || dnsInfo?.aaaaRecords?.[0] || 'N/A'}</div>
               </div>
               <div className="osint-item">
-                <span className="info-label">ISP Network:</span>
+                <span className="info-label">เครือข่ายผู้ให้บริการ:</span>
                 <div className="osint-val">{ipRdap?.networkName || ipRdap?.handle || 'N/A'}</div>
               </div>
               <div className="osint-item">
@@ -1036,7 +1037,7 @@ function Popup() {
                 <div className="osint-val">{domainRdap?.abuseEmail || 'N/A'}</div>
               </div>
               <div className="osint-item" style={{ gridColumn: 'span 2' }}>
-                <span className="info-label">RDAP Source:</span>
+                <span className="info-label">แหล่งข้อมูลทะเบียน:</span>
                 <div className="osint-val">{domainRdap?.rdapServer || ipRdap?.source || 'N/A'}</div>
               </div>
             </div>
@@ -1053,13 +1054,13 @@ function Popup() {
 
           {aiAnalysisResult.matchingRules && aiAnalysisResult.matchingRules.length > 0 && (
             <div className="info-block law-info">
-              <h4 className="info-block-title">⚖️ พระราชบัญญัติและบทลงโทษ (Law Matching)</h4>
+              <h4 className="info-block-title">⚖️ พระราชบัญญัติและบทลงโทษที่เกี่ยวข้อง</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {aiAnalysisResult.matchingRules.map((rule: any, idx: number) => (
                   <div key={idx} className="law-rule-card">
                     <div className="law-rule-name">{rule.lawName} - {rule.section}</div>
                     <div className="law-rule-desc">{rule.description}</div>
-                    <div className="law-rule-penalty">⚠️ {getPenaltyText(rule.section)}</div>
+                    <div className="law-rule-penalty">{getPenaltyText(rule.section)}</div>
                   </div>
                 ))}
               </div>
@@ -1070,36 +1071,36 @@ function Popup() {
 
 
 
-          {/* Action buttons based on Mode */}
+          {/* การดำเนินการ buttons based on Mode */}
           {mode === 'CONSUMER' ? (
-            <button 
-              className="btn-primary" 
-              style={{ background: 'linear-gradient(135deg, #27272a, #000000)', color: '#ffffff', fontWeight: '700', marginTop: '10px', width: '100%' }} 
+            <button
+              className="btn-primary"
+              style={{ background: 'linear-gradient(135deg, #27272a, #000000)', color: '#ffffff', fontWeight: '700', marginTop: '10px', width: '100%' }}
               onClick={handleConsumerConfirmSubmit}
             >
-              🚨 ส่งรายงานเบาะแส อย.
+              ส่งรายงานเบาะแส อย.
             </button>
           ) : (
             <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-              <button 
-                className="btn-primary" 
-                style={{ flex: 1, color: '#ffffff', fontWeight: '700', fontSize: '0.8rem' }} 
+              <button
+                className="btn-primary"
+                style={{ flex: 1, color: '#ffffff', fontWeight: '700', fontSize: '0.8rem' }}
                 onClick={handleSaveToDashboard}
               >
-                💾 บันทึกคดี
+                บันทึกคดี
               </button>
-              <button 
-                className="btn-primary" 
+              <button
+                className="btn-primary"
                 style={{ flex: 1, background: 'linear-gradient(135deg, #27272a, #000000)', color: '#ffffff', fontWeight: '700', fontSize: '0.8rem' }}
                 onClick={() => {
                   if (typeof chrome !== 'undefined' && chrome.tabs) {
-                    chrome.tabs.create({ url: 'http://localhost:3000/cases' });
+                    chrome.tabs.create({ url: `${DASHBOARD_URL}/cases` });
                   } else {
-                    window.open('http://localhost:3000/cases', '_blank');
+                    window.open(`${DASHBOARD_URL}/cases`, '_blank');
                   }
                 }}
               >
-                📊 เข้าแดชบอร์ด
+                เข้าแดชบอร์ด
               </button>
             </div>
           )}

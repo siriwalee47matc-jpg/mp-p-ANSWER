@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "SENTINEL ADs ssk",
+  "name": "Sentinel ADS",
   "version": "1.0.0",
   "description": "เฝ้าระวังภัยโฆษณาเกินจริง (Ad Shield) สำหรับประชาชน และเครื่องมือสืบหาหลักฐานคดีโฆษณาสุขภาพผิดกฎหมายสำหรับเจ้าหน้าที่",
   "permissions": [
@@ -11,10 +11,7 @@
     "alarms",
     "notifications"
   ],
-  "host_permissions": [
-    "http://localhost:3001/*",
-    "<all_urls>"
-  ],
+  "host_permissions": ["<all_urls>"],
   "icons": {
     "16": "logo.png",
     "32": "logo.png",

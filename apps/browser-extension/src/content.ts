@@ -1,5 +1,7 @@
 export {};
 
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+
 const EXAGGERATED_PHRASES = [
   'ลด 10 กิโลใน 3 วัน',
   'ลด 10 กิโล ภายใน 3 วัน',
@@ -133,7 +135,7 @@ function injectWarningPopup(phrases: string[]) {
 
   modal.innerHTML = `
     <button id="warning-close-btn" style="position: absolute; top: 20px; right: 24px; background: transparent; border: none; color: #6f8a87; font-size: 24px; cursor: pointer; transition: color 0.2s; font-weight: 300; line-height: 1;">&times;</button>
-    <div style="font-size: 48px; margin-bottom: 16px; display: inline-block;">⚠️</div>
+    <div style="font-size: 48px; margin-bottom: 16px; display: inline-block;"></div>
     <h2 style="color: #d97706; margin-top: 0; margin-bottom: 12px; font-size: 20px; font-weight: 700; font-family: inherit;">
       ตรวจพบข้อความโฆษณาต้องสงสัย
     </h2>
@@ -197,7 +199,7 @@ function injectWarningBanner(phrases: string[]) {
   `;
 
   const textNode = document.createElement('div');
-  textNode.innerHTML = `Warning: suspicious ad claims detected <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:999px; font-size:12px; margin-left:8px;">${phrases.join(', ')}</span>`;
+  textNode.innerHTML = `ตรวจพบคำโฆษณาที่อาจเข้าข่ายผิดกฎหมาย <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:999px; font-size:12px; margin-left:8px;">${phrases.join(', ')}</span>`;
   banner.appendChild(textNode);
 
   const buttonContainer = document.createElement('div');
@@ -231,7 +233,7 @@ function injectWarningBanner(phrases: string[]) {
       const imageSignalsText = collectImageSignalsText();
       const productType = classifyProductType(`${pageTitle}\n${pageUrl}\n${snippet}\n${imageSignalsText}`);
 
-      const res = await fetch('http://localhost:3001/cases', {
+      const res = await fetch(`${API_URL}/cases`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -315,7 +317,7 @@ function injectBlockOverlay(reason: string) {
 
   overlay.innerHTML = `
     <div style="max-width: 600px; padding: 40px; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 24px; background: rgba(17, 24, 39, 0.88); box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
-      <div style="font-size: 4rem; margin-bottom: 20px;">Blocked</div>
+      <div style="font-size: 4rem; margin-bottom: 20px;">ปิดกั้นแล้ว</div>
       <h1 style="color: #ef4444; font-size: 1.85rem; margin-bottom: 12px; font-weight: 700;">เว็บไซต์นี้ถูกบล็อกโดย Sentinel ADS</h1>
       <p style="color: #f3f4f6; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
         ระบบตรวจพบสัญญาณความเสี่ยงโฆษณาสุขภาพผิดกฎหมายและระงับการเข้าถึงชั่วคราวเพื่อความปลอดภัย

@@ -1,4 +1,5 @@
 // Background Service Worker for Sentinel ADS Shield
+import { API_URL } from './config';
 export {};
 
 type AllowlistEntry = {
@@ -29,7 +30,7 @@ const PRODUCT_PATTERNS: Array<{ productType: ProductType; keywords: string[] }> 
 
 async function syncBlockedDomains() {
   try {
-    const res = await fetch('http://localhost:3001/domains');
+    const res = await fetch(`${API_URL}/domains`);
     if (!res.ok) throw new Error('Failed to fetch domains');
     const domains = await res.json();
     await chrome.storage.local.set({ blockedDomains: domains });
@@ -41,7 +42,7 @@ async function syncBlockedDomains() {
 
 async function syncAllowlist() {
   try {
-    const res = await fetch('http://localhost:3001/allowlist');
+    const res = await fetch(`${API_URL}/allowlist`);
     if (!res.ok) throw new Error('Failed to fetch allowlist');
     const allowlist = await res.json();
     await chrome.storage.local.set({ allowlistDomains: allowlist });
@@ -53,7 +54,7 @@ async function syncAllowlist() {
 
 async function syncRiskLevel() {
   try {
-    const res = await fetch('http://localhost:3001/config/risk-level');
+    const res = await fetch(`${API_URL}/config/risk-level`);
     if (!res.ok) throw new Error('Failed to fetch risk level');
     const config = await res.json();
     if (config && config.riskLevel) {
@@ -124,7 +125,36 @@ function buildAutoBlockDecision(aiResult: any, riskLevel: string, allowlistEntry
   };
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+async function recordExtensionInstall() {
+  const storage = await chrome.storage.local.get(['installationTelemetryId', 'installationTelemetryReported']);
+  const installationId = storage.installationTelemetryId ||
+    (crypto.randomUUID?.() || `install-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  if (!storage.installationTelemetryId) {
+    await chrome.storage.local.set({ installationTelemetryId: installationId });
+  }
+
+  if (storage.installationTelemetryReported) return;
+
+  try {
+    const response = await fetch(`${API_URL}/metrics/extension-install`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        installationId,
+        version: chrome.runtime.getManifest().version,
+      }),
+    });
+
+    if (response.ok) {
+      await chrome.storage.local.set({ installationTelemetryReported: true });
+    }
+  } catch (error) {
+    console.warn('Could not record extension installation:', error);
+  }
+}
+
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.storage.local.set({
     extensionMode: 'CONSUMER',
     autoScan: true,
@@ -137,6 +167,14 @@ chrome.runtime.onInstalled.addListener(() => {
     syncAllowlist();
     syncRiskLevel();
   });
+
+  if (details.reason === 'install') {
+    void recordExtensionInstall();
+  }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void recordExtensionInstall();
 });
 
 chrome.alarms.create('sync_domains_alarm', { periodInMinutes: 0.5 });
@@ -261,7 +299,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     const combinedText = `${activeTab.title || ''}\n${activeTab.url}\n${pageSignals.text}\n${pageSignals.imageSignalsText || ''}`;
     const productType = classifyProductType(combinedText);
 
-    const createRes = await fetch('http://localhost:3001/cases', {
+    const createRes = await fetch(`${API_URL}/cases`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -279,7 +317,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     if (!createRes.ok) throw new Error('Failed to create background case');
     const caseData = await createRes.json();
 
-    const analyzeRes = await fetch(`http://localhost:3001/cases/${caseData.id}/analyze`, {
+    const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
       method: 'POST',
     });
     if (!analyzeRes.ok) throw new Error('AI analysis failed');
@@ -316,7 +354,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       chrome.notifications.create(caseData.id, {
         type: 'basic',
         iconUrl: 'logo.png',
-        title: `🚨 Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
+        title: `Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
         message: `พบโฆษณาอาจเข้าข่ายผิดกฎหมายบนหน้าเว็บ:\n${activeTab.title || activeTab.url}\nข้อแนะนำทางกฎหมาย: ${blockDecision.recommendedAction}`,
         priority: 2,
       }, (id) => {
@@ -326,7 +364,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
           chrome.notifications.create(caseData.id, {
             type: 'basic',
             iconUrl: '',
-            title: `🚨 Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
+            title: `Sentinel ADS: พบความเสี่ยง ${score >= 80 ? 'สูงมาก' : 'ปานกลาง'} (${score}%)`,
             message: `พบโฆษณาอาจเข้าข่ายผิดกฎหมายบนหน้าเว็บ:\n${activeTab.title || activeTab.url}\nข้อแนะนำทางกฎหมาย: ${blockDecision.recommendedAction}`,
             priority: 2,
           });
@@ -336,7 +374,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
 
     if (blockDecision.eligible) {
       try {
-        await fetch(`http://localhost:3001/block/case/${caseData.id}`, {
+        await fetch(`${API_URL}/block/case/${caseData.id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ performedByUserId: null }),
