@@ -35,7 +35,7 @@ The first API start creates the initial administrator only when all three `INITI
 4. Optionally add `NEXT_PUBLIC_CHROME_WEB_STORE_URL` after the extension is published to Chrome Web Store.
 5. Deploy. Add the resulting Vercel domain to the API's `CORS_ORIGINS` value, then redeploy the API.
 
-The dashboard build creates `downloads/sentinel-ads-extension.zip` automatically. Before a Chrome Web Store URL exists, the landing page downloads that ZIP and gives manual installation instructions.
+The release ZIP is committed at `apps/dashboard-web/public/downloads/sentinel-ads-extension.zip` so Vercel can serve it without installing the Extension build toolchain. Run `npm run package:extension` and commit the resulting ZIP whenever the Extension changes. Before a Chrome Web Store URL exists, the landing page downloads that ZIP and gives manual installation instructions.
 
 ## 3. Build the browser extension
 

@@ -12,6 +12,15 @@ const installGuide = path.join(extensionDirectory, 'INSTALLATION.txt');
 const outputDirectory = path.join(root, 'apps', 'dashboard-web', 'public', 'downloads');
 const outputFile = path.join(outputDirectory, 'sentinel-ads-extension.zip');
 
+if (process.env.VERCEL === '1') {
+  if (!fs.existsSync(outputFile)) {
+    throw new Error('The committed Sentinel ADS extension package is missing. Run npm run package:extension before deploying.');
+  }
+
+  console.log(`Using committed extension package: ${path.relative(root, outputFile)}`);
+  process.exit(0);
+}
+
 const command = 'npm run build --workspace=apps/browser-extension';
 const npmExecutable = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
 const npmArguments = process.platform === 'win32' ? ['/d', '/s', '/c', command] : ['run', 'build', '--workspace=apps/browser-extension'];
