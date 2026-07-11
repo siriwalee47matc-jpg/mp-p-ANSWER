@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [cases, setCases] = useState<any[]>([]);
   const [blockedDomains, setBlockedDomains] = useState<any[]>([]);
+  const [publicMetrics, setPublicMetrics] = useState({ downloadClicks: 0, extensionInstalls: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -35,21 +36,27 @@ export default function DashboardPage() {
     }
 
     try {
-      const [casesRes, domainsRes] = await Promise.all([
+      const [casesRes, domainsRes, metricsRes] = await Promise.all([
         fetch(`${API_URL}/cases`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${API_URL}/domains`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(`${API_URL}/metrics/public`),
       ]);
 
       if (!casesRes.ok) throw new Error('ไม่สามารถดึงข้อมูลคดีได้');
       if (!domainsRes.ok) throw new Error('ไม่สามารถดึงบัญชีโดเมนที่ถูกบล็อกได้');
 
-      const [casesData, domainsData] = await Promise.all([casesRes.json(), domainsRes.json()]);
+      const [casesData, domainsData, metricsData] = await Promise.all([
+        casesRes.json(),
+        domainsRes.json(),
+        metricsRes.ok ? metricsRes.json() : { downloadClicks: 0, extensionInstalls: 0 },
+      ]);
       setCases(casesData);
       setBlockedDomains(domainsData);
+      setPublicMetrics(metricsData);
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล command center');
     } finally {
@@ -212,6 +219,58 @@ export default function DashboardPage() {
                   <span className="metric-card__delta good">อยู่ภายใต้การคุ้มครอง</span>
                 </div>
                 <div className="metric-card__footer">โดเมนที่ระบบพร้อมปิดกั้นทันทีเมื่อ ส่วนขยาย ตรวจพบ</div>
+              </div>
+            </section>
+
+            <section className="command-grid grid-2" style={{ marginBottom: '1.25rem' }}>
+              <div className="card">
+                <div className="panel-heading">
+                  <div>
+                    <h3>สถิติส่วนขยายเบราว์เซอร์ (Extension Telemetry)</h3>
+                    <p>ปริมาณการดาวน์โหลดและติดตั้งใช้งานจากผู้ใช้จริงแบบเรียลไทม์</p>
+                  </div>
+                </div>
+                <div className="signal-board" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+                  <div className="signal-card" style={{ borderLeft: '4px solid var(--color-success)', padding: '1rem', background: '#f8fafc' }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>ยอดดาวน์โหลดสะสม (หน้าเว็บหลัก)</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--color-primary)', margin: '0.35rem 0' }}>
+                      {publicMetrics.downloadClicks.toLocaleString()} ครั้ง
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>จำนวนการกดปุ่มดาวน์โหลด/ติดตั้งบน Landing Page</div>
+                  </div>
+                  <div className="signal-card" style={{ borderLeft: '4px solid var(--color-info)', padding: '1rem', background: '#f8fafc' }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>ส่วนขยายที่กำลังใช้งาน (Active)</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--color-info)', margin: '0.35rem 0' }}>
+                      {publicMetrics.extensionInstalls.toLocaleString()} เครื่อง
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>จำนวนอุปกรณ์จริงที่ติดตั้งและรายงานสถานะเข้ามา</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="panel-heading">
+                  <div>
+                    <h3>การสแกนผ่านส่วนขยาย (Extension Scan Summary)</h3>
+                    <p>ข้อมูลภาพรวมคดีที่ถูกป้อนและรายงานจากระบบส่วนขยาย</p>
+                  </div>
+                </div>
+                <div className="signal-board">
+                  <div className="signal-card">
+                    <div className="signal-card__title">คดีจากการสแกนอัตโนมัติ</div>
+                    <div className="signal-card__value" style={{ color: 'var(--text-main)', fontSize: '1.8rem', fontWeight: 700, margin: '0.35rem 0' }}>
+                      {stats.autoDetected} เคส
+                    </div>
+                    <div className="signal-card__sub">เคสทั้งหมดที่ถูกตรวจพบโดยระบบสแกนส่วนขยาย</div>
+                  </div>
+                  <div className="signal-card">
+                    <div className="signal-card__title">อัตราส่วนคดีสแกนอัตโนมัติ</div>
+                    <div className="signal-card__value" style={{ color: 'var(--text-main)', fontSize: '1.8rem', fontWeight: 700, margin: '0.35rem 0' }}>
+                      {pct(stats.autoDetected, stats.totalCases)}%
+                    </div>
+                    <div className="signal-card__sub">สัดส่วนเคสตรวจจับอัตโนมัติต่อเคสทั้งหมด</div>
+                  </div>
+                </div>
               </div>
             </section>
 
