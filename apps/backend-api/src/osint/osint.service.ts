@@ -27,6 +27,13 @@ export class OsintService {
   private dnsBootstrapCache?: any;
   private ipv4BootstrapCache?: any;
 
+  private fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 6000) {
+    return fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  }
+
   async inspectUrl(urlStr: string) {
     const domain = this.extractDomain(urlStr);
     const [aRecords, aaaaRecords, nsRecords, mxRecords] = await Promise.all([
@@ -87,7 +94,7 @@ export class OsintService {
       const rdapServer = match?.[1]?.[0];
       if (!rdapServer) return null;
 
-      const response = await fetch(`${rdapServer.replace(/\/$/, '')}/domain/${encodeURIComponent(domain)}`, {
+      const response = await this.fetchWithTimeout(`${rdapServer.replace(/\/$/, '')}/domain/${encodeURIComponent(domain)}`, {
         headers: { Accept: 'application/rdap+json, application/json' },
       });
       if (!response.ok) return null;
@@ -125,7 +132,7 @@ export class OsintService {
       const rdapServer = match?.[1]?.[0];
       if (!rdapServer) return null;
 
-      const response = await fetch(`${rdapServer.replace(/\/$/, '')}/ip/${encodeURIComponent(ip)}`, {
+      const response = await this.fetchWithTimeout(`${rdapServer.replace(/\/$/, '')}/ip/${encodeURIComponent(ip)}`, {
         headers: { Accept: 'application/rdap+json, application/json' },
       });
       if (!response.ok) return null;
@@ -146,7 +153,7 @@ export class OsintService {
 
   private async getDnsBootstrap() {
     if (!this.dnsBootstrapCache) {
-      const response = await fetch('https://data.iana.org/rdap/dns.json');
+      const response = await this.fetchWithTimeout('https://data.iana.org/rdap/dns.json');
       this.dnsBootstrapCache = await response.json();
     }
     return this.dnsBootstrapCache;
@@ -154,7 +161,7 @@ export class OsintService {
 
   private async getIpv4Bootstrap() {
     if (!this.ipv4BootstrapCache) {
-      const response = await fetch('https://data.iana.org/rdap/ipv4.json');
+      const response = await this.fetchWithTimeout('https://data.iana.org/rdap/ipv4.json');
       this.ipv4BootstrapCache = await response.json();
     }
     return this.ipv4BootstrapCache;

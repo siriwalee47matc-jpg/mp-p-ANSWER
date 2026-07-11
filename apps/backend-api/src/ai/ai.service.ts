@@ -41,6 +41,7 @@ export class AiService {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey,
           },
+          signal: AbortSignal.timeout(25000),
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
@@ -227,6 +228,7 @@ export class AiService {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey,
           },
+          signal: AbortSignal.timeout(25000),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents
