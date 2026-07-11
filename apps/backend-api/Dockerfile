@@ -1,5 +1,6 @@
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 WORKDIR /app
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY apps ./apps
 COPY packages ./packages
@@ -9,8 +10,9 @@ RUN npm ci
 RUN npx prisma generate
 RUN npm run build --workspace=packages/shared && npm run build --workspace=apps/backend-api
 
-FROM node:20-alpine
+FROM node:20-slim
 WORKDIR /app
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/backend-api/dist ./apps/backend-api/dist
