@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import { CaseStatus, ProductType } from '@kp-ads/shared';
+import { API_URL } from '@/lib/api';
 
 function riskTone(score?: number) {
   if ((score ?? 0) >= 80) return { color: '#dc2626', bg: 'linear-gradient(90deg, #ef4444, #b91c1c)' };
@@ -35,7 +36,7 @@ export default function CasesPage() {
       if (statusFilter) queryParams.append('status', statusFilter);
       if (typeFilter) queryParams.append('productType', typeFilter);
 
-      const res = await fetch(`http://localhost:3001/cases?${queryParams.toString()}`, {
+      const res = await fetch(`${API_URL}/cases?${queryParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -69,10 +70,10 @@ export default function CasesPage() {
   }, [cases]);
 
   const translateStatus = (status: string) => {
-    if (status === CaseStatus.PENDING) return 'Pending';
-    if (status === CaseStatus.UNDER_REVIEW) return 'Under Review';
-    if (status === CaseStatus.APPROVED_BLOCKED) return 'Blocked';
-    return 'Rejected';
+    if (status === CaseStatus.PENDING) return 'รอตรวจสอบ';
+    if (status === CaseStatus.UNDER_REVIEW) return 'อยู่ระหว่างตรวจสอบ';
+    if (status === CaseStatus.APPROVED_BLOCKED) return 'อนุมัติการปิดกั้นแล้ว';
+    return 'ไม่อนุมัติ';
   };
 
   const translateProductType = (type: string) => {
@@ -109,18 +110,18 @@ export default function CasesPage() {
       <main className="container">
         <section className="command-grid command-grid--hero" style={{ marginBottom: '1.25rem' }}>
           <div className="card command-hero">
-            <span className="command-hero__eyebrow">Case Operations Room</span>
+            <span className="command-hero__eyebrow">ศูนย์ปฏิบัติการคดี</span>
             <h1 className="command-hero__title">ห้องปฏิบัติการคดีและหลักฐาน</h1>
             <p className="command-hero__description">
-              จัดการทุกเคสใน workflow เดียว ตั้งแต่ intake, AI triage, law confirmation, reviewer decision,
-              ไปจนถึง block execution และ export หลักฐาน
+              จัดการทุกคดีในกระบวนการเดียว ตั้งแต่รับเรื่อง คัดกรอง ตรวจยืนยันข้อกฎหมาย อนุมัติผล
+              ไปจนถึงการปิดกั้นและส่งออกหลักฐาน
             </p>
             <div className="command-actions">
               <button className="btn btn-primary" onClick={fetchCases}>
                 รีเฟรชคิวคดี
               </button>
               <button className="btn btn-secondary" onClick={() => router.push('/risk-logs')}>
-                เปิด risk stream
+                เปิดรายการความเสี่ยง
               </button>
             </div>
           </div>
@@ -128,36 +129,36 @@ export default function CasesPage() {
           <div className="card">
             <div className="panel-heading">
               <div>
-                <h3>Queue Snapshot</h3>
+                <h3>ภาพรวมคิวงาน</h3>
                 <p>สถานะเร่งด่วนของห้องคดีแบบย่อ</p>
               </div>
             </div>
             <div className="command-pulse">
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>Total Cases</strong>
+                  <strong>คดีทั้งหมด</strong>
                   <span>คดีทั้งหมดในระบบ</span>
                 </div>
                 <div className="command-pulse__value">{insights.total}</div>
               </div>
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>Pending Action</strong>
+                  <strong>รอดำเนินการ</strong>
                   <span>คดีที่ยังค้างการเปิดตรวจ</span>
                 </div>
                 <div className="command-pulse__value">{insights.pending}</div>
               </div>
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>Auto-Scan Inflow</strong>
+                  <strong>คดีจากการตรวจจับอัตโนมัติ</strong>
                   <span>คดีที่ระบบสแกนเข้ามาอัตโนมัติ</span>
                 </div>
                 <div className="command-pulse__value">{insights.autoScan}</div>
               </div>
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>High-Risk Cases</strong>
-                  <span>คดีที่ AI ให้ความเสี่ยงสูงมาก</span>
+                  <strong>คดีความเสี่ยงสูง</strong>
+                  <span>คดีที่ ระบบอัจฉริยะ ให้ความเสี่ยงสูงมาก</span>
                 </div>
                 <div className="command-pulse__value">{insights.highRisk}</div>
               </div>
@@ -168,8 +169,8 @@ export default function CasesPage() {
         <section className="card" style={{ marginBottom: '1.25rem' }}>
           <div className="panel-heading">
             <div>
-              <h3>Search & Filters</h3>
-              <p>คัดเคสตาม domain, หมายเลขคดี, สถานะ และประเภทผลิตภัณฑ์</p>
+              <h3>ค้นหาและตัวกรอง</h3>
+              <p>คัดกรองตามโดเมน หมายเลขคดี สถานะ และประเภทผลิตภัณฑ์</p>
             </div>
           </div>
 
@@ -187,10 +188,10 @@ export default function CasesPage() {
               <label>สถานะ</label>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">ทั้งหมด</option>
-                <option value={CaseStatus.PENDING}>Pending</option>
-                <option value={CaseStatus.UNDER_REVIEW}>Under Review</option>
-                <option value={CaseStatus.APPROVED_BLOCKED}>Blocked</option>
-                <option value={CaseStatus.REJECTED}>Rejected</option>
+                <option value={CaseStatus.PENDING}>รอตรวจสอบ</option>
+                <option value={CaseStatus.UNDER_REVIEW}>อยู่ระหว่างตรวจสอบ</option>
+                <option value={CaseStatus.APPROVED_BLOCKED}>อนุมัติการปิดกั้นแล้ว</option>
+                <option value={CaseStatus.REJECTED}>ไม่อนุมัติ</option>
               </select>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -217,7 +218,7 @@ export default function CasesPage() {
 
         {loading ? (
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-            กำลังโหลด case operations...
+            กำลังโหลด งานคดี...
           </div>
         ) : cases.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
@@ -232,11 +233,11 @@ export default function CasesPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Case ID</th>
+                    <th>หมายเลขคดี</th>
                     <th>รายละเอียด</th>
                     <th>ประเภท</th>
-                    <th>Risk</th>
-                    <th>Source</th>
+                    <th>ความเสี่ยง</th>
+                    <th>แหล่งที่มา</th>
                     <th>สถานะ</th>
                     <th>จัดการ</th>
                   </tr>
@@ -282,7 +283,7 @@ export default function CasesPage() {
                             {item.reporterRole === 'INSPECTOR'
                               ? 'เจ้าหน้าที่'
                               : item.reporterRole === 'SYSTEM'
-                                ? 'SYSTEM AUTO-SCAN'
+                                ? 'ระบบตรวจจับอัตโนมัติ'
                                 : 'ประชาชน'}
                           </span>
                         </td>
@@ -323,7 +324,7 @@ export default function CasesPage() {
                                 anchor.remove();
                               }}
                             >
-                              Export JSON
+                              ส่งออกข้อมูล
                             </button>
                           </div>
                         </td>

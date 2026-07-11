@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import Chatbot from '../components/Chatbot';
 
 export const metadata: Metadata = {
   title: 'SENTINEL ADS SISAKET',
@@ -17,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body>{children}</body>
+      <body>{children}<Chatbot /></body>
     </html>
   );
 }

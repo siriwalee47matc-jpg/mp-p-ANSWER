@@ -17,9 +17,9 @@ export default function BrandMark({ compact = false }: BrandMarkProps) {
         />
       </div>
       <div className="brand-mark__copy">
-        <span className="brand-mark__eyebrow">AI Ad Enforcement Command</span>
+        <span className="brand-mark__eyebrow">ศูนย์บังคับใช้กฎหมายโฆษณาอัจฉริยะ</span>
         <strong className="brand-mark__title">SENTINEL ADS</strong>
-        <span className="brand-mark__subtitle">Sisaket Public Health Illegal Ad Intelligence Center</span>
+        <span className="brand-mark__subtitle">ศูนย์เฝ้าระวังโฆษณาผิดกฎหมายด้านสาธารณสุขจังหวัดศรีสะเกษ</span>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
+import { API_URL } from '@/lib/api';
 
 interface RiskLog {
   id: string;
@@ -18,9 +19,9 @@ interface RiskLog {
 }
 
 function getRiskLabel(score: number) {
-  if (score >= 80) return 'High Critical';
-  if (score >= 50) return 'Elevated';
-  return 'Low Signal';
+  if (score >= 80) return 'วิกฤตสูง';
+  if (score >= 50) return 'เฝ้าระวัง';
+  return 'สัญญาณความเสี่ยงต่ำ';
 }
 
 function getRiskColor(score: number) {
@@ -46,13 +47,13 @@ export default function RiskLogsPage() {
     }
 
     try {
-      const res = await fetch('http://localhost:3001/risk/logs', {
+      const res = await fetch(`${API_URL}/risk/logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูล risk logs ได้');
+      if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูล รายการความเสี่ยง ได้');
       setLogs(await res.json());
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการโหลด risk stream');
+      setError(err.message || 'เกิดข้อผิดพลาดในการโหลด รายการความเสี่ยง');
     } finally {
       setLoading(false);
     }
@@ -93,8 +94,8 @@ export default function RiskLogsPage() {
       <main className="container">
         <section className="command-grid command-grid--hero" style={{ marginBottom: '1.25rem' }}>
           <div className="card command-hero">
-            <span className="command-hero__eyebrow">Auto Detection Stream</span>
-            <h1 className="command-hero__title">Risk Logs Command Stream</h1>
+            <span className="command-hero__eyebrow">การตรวจจับอัตโนมัติ</span>
+            <h1 className="command-hero__title">รายการเหตุการณ์ความเสี่ยง</h1>
             <p className="command-hero__description">
               ศูนย์รวมสัญญาณจากการสแกนโฆษณาอัตโนมัติ ใช้ดูแนวโน้มความเสี่ยง, ความหนาแน่นของเหตุการณ์,
               และเคสที่ควรเร่งปฏิบัติการก่อนเข้าสู่ขั้นตอนกฎหมาย
@@ -104,7 +105,7 @@ export default function RiskLogsPage() {
                 รีเฟรชสตรีม
               </button>
               <button className="btn btn-secondary" onClick={() => router.push('/settings')}>
-                ไปยัง Control Room
+                ไปยัง ศูนย์ควบคุม
               </button>
             </div>
           </div>
@@ -112,29 +113,29 @@ export default function RiskLogsPage() {
           <div className="card">
             <div className="panel-heading">
               <div>
-                <h3>Signal Summary</h3>
-                <p>ดูความร้อนของ incident stream แบบย่อ</p>
+                <h3>สรุปสัญญาณความเสี่ยง</h3>
+                <p>ดูความร้อนของ รายการเหตุการณ์ แบบย่อ</p>
               </div>
             </div>
             <div className="command-pulse">
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>Critical Alerts</strong>
-                  <span>เคสที่เกิน 80% และเข้าข่าย block เร่งด่วน</span>
+                  <strong>การแจ้งเตือนวิกฤต</strong>
+                  <span>คดีที่เกิน 80% และเข้าข่ายต้องปิดกั้นเร่งด่วน</span>
                 </div>
                 <div className="command-pulse__value">{overview.high}</div>
               </div>
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>Medium Watchlist</strong>
+                  <strong>รายการเฝ้าระวังระดับกลาง</strong>
                   <span>เคสที่ควรให้เจ้าหน้าที่เปิดตรวจยืนยัน</span>
                 </div>
                 <div className="command-pulse__value">{overview.medium}</div>
               </div>
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>Baseline Traffic</strong>
-                  <span>เหตุการณ์ความเสี่ยงต่ำหรือใช้เป็น pattern reference</span>
+                  <strong>เหตุการณ์ความเสี่ยงต่ำ</strong>
+                  <span>เหตุการณ์ความเสี่ยงต่ำหรือใช้เป็นข้อมูลอ้างอิง</span>
                 </div>
                 <div className="command-pulse__value">{overview.low}</div>
               </div>
@@ -144,15 +145,15 @@ export default function RiskLogsPage() {
 
         <section className="metric-grid" style={{ marginBottom: '1.25rem' }}>
           {[
-            { label: 'Total Events', value: overview.total, className: 'card-glow-blue' },
+            { label: 'เหตุการณ์ทั้งหมด', value: overview.total, className: 'card-glow-blue' },
             { label: 'Critical', value: overview.high, className: 'card-glow-danger' },
-            { label: 'Elevated', value: overview.medium, className: 'card-glow-warning' },
-            { label: 'Low Signal', value: overview.low, className: 'card-glow-green' },
+            { label: 'เฝ้าระวัง', value: overview.medium, className: 'card-glow-warning' },
+            { label: 'สัญญาณความเสี่ยงต่ำ', value: overview.low, className: 'card-glow-green' },
           ].map((item) => (
             <div key={item.label} className={`card metric-card ${item.className}`}>
               <span className="metric-card__label">{item.label}</span>
               <div className="metric-card__value">{item.value}</div>
-              <div className="metric-card__footer">อัปเดตจาก stream ที่ extension ส่งเข้าระบบ</div>
+              <div className="metric-card__footer">อัปเดตจากข้อมูลที่ส่วนขยายส่งเข้าระบบ</div>
             </div>
           ))}
         </section>
@@ -169,9 +170,9 @@ export default function RiskLogsPage() {
                   style={{ fontSize: '0.82rem' }}
                 >
                   {value === 'ALL' && 'ทั้งหมด'}
-                  {value === 'HIGH' && 'High Critical'}
-                  {value === 'MEDIUM' && 'Elevated'}
-                  {value === 'LOW' && 'Low Signal'}
+                  {value === 'HIGH' && 'วิกฤตสูง'}
+                  {value === 'MEDIUM' && 'เฝ้าระวัง'}
+                  {value === 'LOW' && 'สัญญาณความเสี่ยงต่ำ'}
                 </button>
               ))}
             </div>
@@ -182,7 +183,7 @@ export default function RiskLogsPage() {
 
         {loading ? (
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-            กำลังโหลด risk stream...
+            กำลังโหลด รายการความเสี่ยง...
           </div>
         ) : filteredLogs.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
@@ -230,7 +231,7 @@ export default function RiskLogsPage() {
                     </div>
 
                     <div className="risk-meter">
-                      <span style={{ minWidth: '92px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Risk Signal</span>
+                      <span style={{ minWidth: '92px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>สัญญาณความเสี่ยง</span>
                       <div className="risk-meter__track" style={{ width: '180px' }}>
                         <div
                           className="risk-meter__fill"

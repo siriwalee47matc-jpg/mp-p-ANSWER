@@ -5,19 +5,19 @@ import { usePathname, useRouter } from 'next/navigation';
 import BrandMark from './BrandMark';
 
 const roleLabels: Record<string, string> = {
-  ADMIN: 'Administrator',
-  REVIEWER: 'Reviewer',
-  LEGAL_OFFICER: 'Legal Officer',
-  INSPECTOR: 'Inspector',
-  EXECUTIVE: 'Executive',
+  ADMIN: 'ผู้ดูแลระบบ',
+  REVIEWER: 'ผู้ทบทวน',
+  LEGAL_OFFICER: 'นิติกร',
+  INSPECTOR: 'เจ้าหน้าที่ตรวจสอบ',
+  EXECUTIVE: 'ผู้บริหาร',
 };
 
 const navigation = [
   { href: '/cases', label: 'คดีและหลักฐาน', roles: ['INSPECTOR', 'LEGAL_OFFICER', 'REVIEWER', 'ADMIN', 'EXECUTIVE'] },
   { href: '/dashboard', label: 'ภาพรวมระบบ', roles: ['EXECUTIVE', 'ADMIN', 'REVIEWER'] },
-  { href: '/audit', label: 'Audit Trail', roles: ['ADMIN', 'EXECUTIVE'] },
-  { href: '/risk-logs', label: 'Risk Logs', roles: ['ADMIN', 'REVIEWER', 'INSPECTOR'] },
-  { href: '/settings', label: 'Control Room', roles: ['ADMIN', 'REVIEWER'] },
+  { href: '/audit', label: 'ประวัติการทำรายการ', roles: ['ADMIN', 'EXECUTIVE'] },
+  { href: '/risk-logs', label: 'รายการความเสี่ยง', roles: ['ADMIN', 'REVIEWER', 'INSPECTOR'] },
+  { href: '/settings', label: 'ศูนย์ควบคุม', roles: ['ADMIN', 'REVIEWER'] },
 ];
 
 export default function Header() {
@@ -72,7 +72,7 @@ export default function Header() {
             <div className="header__user-name">{user.name}</div>
             <div className="header__user-role">{roleLabels[user.role] || user.role}</div>
           </div>
-          <div className="header__user-badge">Live Ops</div>
+          <div className="header__user-badge">ปฏิบัติการสด</div>
           <button
             onClick={handleLogout}
             className="btn btn-secondary"

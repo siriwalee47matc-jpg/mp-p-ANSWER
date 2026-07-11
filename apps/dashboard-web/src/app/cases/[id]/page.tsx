@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Header from '../../../components/Header';
 import { CaseStatus, ProductType, UserRole } from '@kp-ads/shared';
+import { API_URL } from '@/lib/api';
 
 const renderPenaltyDetails = (section: string) => {
   let prison = 'ไม่มี';
@@ -68,7 +69,7 @@ const renderPenaltyDetails = (section: string) => {
       padding: '1rem'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#b91c1c', fontWeight: 800, marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        <span>🚨 บทกำหนดโทษตามกฎหมาย ({penaltySection})</span>
+        <span>บทกำหนดโทษตามกฎหมาย ({penaltySection})</span>
       </div>
       <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.6rem', lineHeight: '1.4' }}>
         <strong>ฐานความผิด:</strong> {violationDetails || 'ฝ่าฝืนข้อบัญญัติการโฆษณาผลิตภัณฑ์สุขภาพ'}
@@ -88,7 +89,7 @@ const renderPenaltyDetails = (section: string) => {
         </div>
       </div>
       <div style={{ marginTop: '0.5rem', fontSize: '0.72rem', color: '#7f1d1d', background: '#fef2f2', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block' }}>
-        ⚠️ หมายเหตุ: ระวางโทษจำคุก หรือปรับ หรือทั้งจำทั้งปรับ
+        หมายเหตุ: ระวางโทษจำคุก หรือปรับ หรือทั้งจำทั้งปรับ
       </div>
     </div>
   );
@@ -154,7 +155,7 @@ const getConciseSuspiciousKeywords = (text: string) => {
             alignItems: 'flex-start',
             gap: '8px'
           }}>
-            <span style={{ fontSize: '1rem', marginTop: '1px' }}>⚠️</span>
+            <span style={{ fontSize: '1rem', marginTop: '1px' }}></span>
             <div dangerouslySetInnerHTML={{ __html: highlighted }} />
           </div>
         );
@@ -179,12 +180,12 @@ const parseAiAnalysis = (analysisText: string) => {
   });
 
   const translations: { [key: string]: { label: string; icon: string; valueColor?: string } } = {
-    'ai risk assessment': { label: 'การประเมินความเสี่ยงของ AI', icon: '🚨', valueColor: '#b91c1c' },
+    'ai risk assessment': { label: 'การประเมินความเสี่ยงของ ระบบอัจฉริยะ', icon: '', valueColor: '#b91c1c' },
     'detected claims': { label: 'การกล่าวอ้างที่ตรวจพบ', icon: '📢' },
     'product classification': { label: 'ประเภทกลุ่มผลิตภัณฑ์', icon: '📦' },
     'license verification': { label: 'การตรวจสอบใบอนุญาต อย.', icon: '🔑' },
     'image text ocr': { label: 'ข้อความดึงจากภาพ (OCR)', icon: '📷' },
-    'osint status': { label: 'ความน่าเชื่อถือโดเมน (OSINT)', icon: '🌐' },
+    'osint status': { label: 'ความน่าเชื่อถือของโดเมนจากแหล่งข้อมูลเปิด', icon: '🌐' },
     'allowlist status': { label: 'สถานะบัญชีขาว (Allowlist)', icon: '⚪' },
     'enforcement recommendation': { label: 'ข้อเสนอแนะมาตรการบังคับใช้', icon: '⚡', valueColor: '#b91c1c' },
     'legal review': { label: 'มาตรากฎหมายที่แนะนำให้ตรวจสอบ', icon: '⚖️' }
@@ -200,7 +201,7 @@ const parseAiAnalysis = (analysisText: string) => {
       boxShadow: '0 4px 12px rgba(139, 92, 246, 0.02)'
     }}>
       <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-        📝 รายงานความเห็นข้อกฎหมาย AI:
+        📝 รายงานความเห็นข้อกฎหมาย ระบบอัจฉริยะ:
       </h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {Object.entries(data).map(([key, value]) => {
@@ -212,7 +213,7 @@ const parseAiAnalysis = (analysisText: string) => {
           if (key === 'ai risk assessment') {
             displayValue = value.replace('HIGH', 'เสี่ยงสูง').replace('MEDIUM', 'เสี่ยงปานกลาง').replace('LOW', 'เสี่ยงต่ำ');
           } else if (key === 'enforcement recommendation') {
-            displayValue = value.replace('AUTO_BLOCK', 'บล็อกอัตโนมัติ (Auto Block)').replace('REPORT_ONLY', 'รายงานอย่างเดียว').replace('NONE', 'ไม่มีมาตรการ');
+            displayValue = value.replace('AUTO_BLOCK', 'ปิดกั้นอัตโนมัติ').replace('REPORT_ONLY', 'รายงานอย่างเดียว').replace('NONE', 'ไม่มีมาตรการ');
           } else if (key === 'allowlist status') {
             displayValue = value === 'none' ? 'ไม่ได้อยู่ในบัญชีขาว (None)' : value;
           }
@@ -262,8 +263,8 @@ export default function CaseDetailPage() {
     setCurrentUser(decodedUser);
 
     try {
-      // 1. Fetch Case Details
-      const caseRes = await fetch(`http://localhost:3001/cases/${id}`, {
+      // 1. Fetch Case รายละเอียด
+      const caseRes = await fetch(`${API_URL}/cases/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!caseRes.ok) throw new Error('ไม่สามารถดึงข้อมูลคดีได้');
@@ -276,7 +277,7 @@ export default function CaseDetailPage() {
       }
 
       // 2. Fetch Laws list
-      const lawsRes = await fetch(`http://localhost:3001/laws`, {
+      const lawsRes = await fetch(`${API_URL}/laws`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (lawsRes.ok) {
@@ -301,14 +302,14 @@ export default function CaseDetailPage() {
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch(`http://localhost:3001/cases/${id}/analyze`, {
+      const res = await fetch(`${API_URL}/cases/${id}/analyze`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
-      if (!res.ok) throw new Error('การรัน AI วิเคราะห์ข้อมูลเกิดความล้มเหลว');
+      if (!res.ok) throw new Error('การรัน ระบบอัจฉริยะ วิเคราะห์ข้อมูลเกิดความล้มเหลว');
 
-      setSuccessMsg('⚡ ระบบ AI ตรวจจับพยานหลักฐานและวิเคราะห์ความเสี่ยงเรียบร้อยแล้ว!');
+      setSuccessMsg('⚡ ระบบ ระบบอัจฉริยะ ตรวจจับพยานหลักฐานและวิเคราะห์ความเสี่ยงเรียบร้อยแล้ว!');
       
       // Refresh details
       await fetchDetails();
@@ -326,7 +327,7 @@ export default function CaseDetailPage() {
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch(`http://localhost:3001/cases/${id}/confirm-laws`, {
+      const res = await fetch(`${API_URL}/cases/${id}/confirm-laws`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -361,7 +362,7 @@ export default function CaseDetailPage() {
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch(`http://localhost:3001/cases/${id}/status`, {
+      const res = await fetch(`${API_URL}/cases/${id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -403,9 +404,9 @@ export default function CaseDetailPage() {
 
   const translateStatus = (status: string) => {
     switch (status) {
-      case CaseStatus.PENDING: return 'แจ้งเบาะแสประชาชน (Pending)';
+      case CaseStatus.PENDING: return 'แจ้งเบาะแสประชาชน (รอตรวจสอบ)';
       case CaseStatus.UNDER_REVIEW: return 'อยู่ระหว่างตรวจสอบ (Review)';
-      case CaseStatus.APPROVED_BLOCKED: return 'อนุมัติบล็อกแล้ว (Blocked)';
+      case CaseStatus.APPROVED_BLOCKED: return 'อนุมัติบล็อกแล้ว (ปิดกั้นแล้ว)';
       default: return 'ยกเลิกคดี (Rejected)';
     }
   };
@@ -481,7 +482,7 @@ export default function CaseDetailPage() {
             marginBottom: '1.5rem',
             fontWeight: 500
           }}>
-            ✅ {successMsg}
+            {successMsg}
           </div>
         )}
         {error && (
@@ -493,7 +494,7 @@ export default function CaseDetailPage() {
             padding: '1rem',
             marginBottom: '1.5rem'
           }}>
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -572,7 +573,7 @@ export default function CaseDetailPage() {
                   padding: '1.25rem'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem', fontWeight: 'bold', color: '#b91c1c', fontSize: '0.95rem' }}>
-                    <span>🚨 คำโฆษณาต้องสงสัยที่ตรวจพบ (Suspected Keywords):</span>
+                    <span>คำโฆษณาต้องสงสัยที่ตรวจพบ:</span>
                   </div>
                   <div style={{
                     background: '#ffffff',
@@ -585,7 +586,7 @@ export default function CaseDetailPage() {
                   
                   <details style={{ marginTop: '1rem', borderTop: '1px solid #fee2e2', paddingTop: '0.75rem' }}>
                     <summary style={{ fontSize: '0.78rem', color: '#7f1d1d', cursor: 'pointer', fontWeight: 'bold', userSelect: 'none' }}>
-                      🔎 ดูเนื้อหาโฆษณาฉบับเต็มทั้งหมด (View Full Text)
+                      🔎 ดูเนื้อหาโฆษณาฉบับเต็มทั้งหมด
                     </summary>
                     <div style={{
                       marginTop: '0.5rem',
@@ -610,29 +611,29 @@ export default function CaseDetailPage() {
             {whois && (
               <div className="card card-glow-cyan" style={{ flex: 1 }}>
                 <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                  🛡️ ข้อมูลความมั่นคงผู้เผยแพร่ (OSINT Security Details)
+                  🛡️ ข้อมูลความน่าเชื่อถือของผู้เผยแพร่จากแหล่งข้อมูลเปิด
                 </h2>
                 <div className="table-wrapper" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', marginBottom: '0.75rem' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                       <tr>
-                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', width: '35%', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>ไอพีผู้ให้บริการ (IP Address)</td>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', width: '35%', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>หมายเลขไอพีผู้ให้บริการ</td>
                         <td style={{ fontFamily: 'var(--font-mono)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.ipAddress || 'ไม่พบข้อมูล'}</td>
                       </tr>
                       <tr>
-                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>ISP Network</td>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>เครือข่ายผู้ให้บริการ</td>
                         <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.isp || 'ไม่พบข้อมูล'}</td>
                       </tr>
                       <tr>
-                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>เจ้าของจดทะเบียน (Registrant)</td>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>เจ้าของจดทะเบียน</td>
                         <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.registrantName || 'ไม่พบข้อมูล'}</td>
                       </tr>
                       <tr>
-                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>วันจดทะเบียน (Creation Date)</td>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>วันจดทะเบียน</td>
                         <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>{whois.creationDate || 'ไม่พบข้อมูล'}</td>
                       </tr>
                       <tr>
-                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>อีเมลติดต่อกลับ (Contact Email)</td>
+                        <td style={{ fontWeight: 'bold', background: 'rgba(0,0,0,0.02)', padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>อีเมลติดต่อกลับ (อีเมลติดต่อกลับ)</td>
                         <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem' }}>
                           {whois.contactEmail ? (
                             <a href={`mailto:${whois.contactEmail}`} style={{ textDecoration: 'underline' }}>{whois.contactEmail}</a>
@@ -666,11 +667,11 @@ export default function CaseDetailPage() {
             )}
           </div>
 
-          {/* Right Side: AI Assistant & Screenshot portals */}
+          {/* Right Side: ผู้ช่วยอัจฉริยะและภาพหลักฐาน */}
           <div className="flex flex-col gap-3">
             <div className="card card-glow-primary">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                <h2 style={{ fontSize: '1.25rem' }}>⚡ ผลวิเคราะห์อัจฉริยะ (AI Agent)</h2>
+                <h2 style={{ fontSize: '1.25rem' }}>⚡ ผลวิเคราะห์จากระบบอัจฉริยะ</h2>
                 {!item.aiRiskScore && (
                   <button
                     onClick={handleRunAI}
@@ -678,14 +679,14 @@ export default function CaseDetailPage() {
                     className="btn btn-primary"
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', borderRadius: '6px' }}
                   >
-                    {actionLoading ? 'กำลังประมวลผล...' : '⚡ รัน AI วิเคราะห์ด่วน'}
+                    {actionLoading ? 'กำลังประมวลผล...' : '⚡ รัน ระบบอัจฉริยะ วิเคราะห์ด่วน'}
                   </button>
                 )}
               </div>
 
               {!item.aiRiskScore ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>🤖</span>
+                  <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}></span>
                   <p style={{ fontSize: '0.9rem' }}>ยังไม่ได้รันการวิเคราะห์ความเสี่ยงและพยานหลักฐานเบื้องต้น</p>
                   <button
                     onClick={handleRunAI}
@@ -698,7 +699,7 @@ export default function CaseDetailPage() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  {/* Risk gauge */}
+                  {/* ความเสี่ยง gauge */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>ประเมินระดับความเสี่ยงการละเมิดกฎหมาย:</span>
@@ -735,24 +736,24 @@ export default function CaseDetailPage() {
                           background: item.licenseStatus === 'VALID' ? 'var(--color-success)' : item.licenseStatus === 'INVALID' ? 'var(--color-danger)' : 'var(--color-warning)'
                         }}></span>
                         <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                          {item.licenseStatus === 'VALID' ? 'Verified valid' : item.licenseStatus === 'INVALID' ? 'Invalid or expired' : item.licenseStatus === 'CHECK_OFFICIAL_SOURCE' ? 'Check official source' : 'Not shown on page'}
+                          {item.licenseStatus === 'VALID' ? 'ตรวจสอบแล้วและถูกต้อง' : item.licenseStatus === 'INVALID' ? 'ไม่ถูกต้องหรือหมดอายุ' : item.licenseStatus === 'CHECK_OFFICIAL_SOURCE' ? 'ควรตรวจสอบแหล่งข้อมูลทางการ' : 'ไม่ปรากฏบนหน้าเว็บ'}
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Cross-check with official FDA and OSINT sources</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>ตรวจสอบกับแหล่งข้อมูลทางการและข้อมูลสืบค้นแหล่งเปิด</div>
                     </div>
 
                     <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '0.75rem', borderRadius: '8px' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>ผู้จดโดเมน (Registrant)</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>ผู้จดโดเมน</div>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        👤 {whois?.domainRdap?.registrant || whois?.domain || '???????????'}
+                        {whois?.domainRdap?.registrant || whois?.domain || '???????????'}
                       </div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                        จดผ่าน: {whois?.domainRdap?.registrar || whois?.domainRdap?.rdapServer || 'N/A'}
+                        จดผ่าน: {whois?.domainRdap?.registrar || whois?.domainRdap?.rdapServer || 'ไม่พบข้อมูล'}
                       </div>
                     </div>
                   </div>
 
-                  {/* AI Diagnosis Details */}
+                  {/* ระบบอัจฉริยะ Diagnosis รายละเอียด */}
                   {parseAiAnalysis(item.aiAnalysis)}
                 </div>
               )}
@@ -761,7 +762,7 @@ export default function CaseDetailPage() {
             {item.evidenceImage && (
               <div className="card card-glow-primary" style={{ flex: 1 }}>
                 <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                  📸 ภาพหน้าจอหลักฐาน (Evidence Screenshot)
+                      📸 ภาพหน้าจอหลักฐาน
                 </h2>
                 <div style={{
                   border: '1px solid var(--border-color)',
@@ -788,7 +789,7 @@ export default function CaseDetailPage() {
         {matchedLaws.length > 0 && (
           <div className="card card-glow-warning" style={{ marginTop: '2rem' }}>
             <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              ⚖️ รายการกฎหมายและบทลงโทษที่เกี่ยวข้อง (Law Matching List)
+              ⚖️ รายการกฎหมายและบทลงโทษที่เกี่ยวข้อง
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
               {matchedLaws.map((l: any) => (
@@ -806,7 +807,7 @@ export default function CaseDetailPage() {
                         borderRadius: '6px',
                         fontWeight: 'bold'
                       }}>
-                        {l.isConfirmed ? '✅ ยืนยันพยานหลักฐานแล้ว' : '🤖 แนะนำโดย AI'}
+                        {l.isConfirmed ? 'ยืนยันพยานหลักฐานแล้ว' : 'แนะนำโดย ระบบอัจฉริยะ'}
                       </span>
                     </div>
                     
@@ -830,10 +831,10 @@ export default function CaseDetailPage() {
         {(currentUser.role === UserRole.LEGAL_OFFICER || currentUser.role === UserRole.ADMIN) && item.status !== CaseStatus.APPROVED_BLOCKED && (
           <div className="card card-glow-warning" style={{ marginTop: '2rem' }}>
             <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              ⚖️ หน้าที่ของนิติกร (Confirm Law Rules)
+              ⚖️ หน้าที่ของนิติกร
             </h2>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-              ตรวจสอบเนื้อหาหลักฐานความเห็นของ AI ด้านบน จากนั้นเลือกยืนยันกฎหมายมาตราที่ผู้ลงโฆษณากระทำความผิดเพื่อนำประกอบคดี
+              ตรวจสอบเนื้อหาหลักฐานความเห็นของ ระบบอัจฉริยะ ด้านบน จากนั้นเลือกยืนยันกฎหมายมาตราที่ผู้ลงโฆษณากระทำความผิดเพื่อนำประกอบคดี
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
@@ -863,7 +864,7 @@ export default function CaseDetailPage() {
                       padding: '0.1rem 0.4rem',
                       borderRadius: '4px',
                       fontWeight: 600
-                    }}>{l.riskLevel} RISK</span>
+                    }}>ระดับความเสี่ยง {l.riskLevel}</span>
                   </div>
                 </label>
               ))}
@@ -880,11 +881,11 @@ export default function CaseDetailPage() {
           </div>
         )}
 
-        {/* Reviewer Section: Approve and Block Domain */}
+        {/* Reviewer Section: Approve and Block โดเมน */}
         {(currentUser.role === UserRole.REVIEWER || currentUser.role === UserRole.ADMIN) && item.status !== CaseStatus.APPROVED_BLOCKED && (
           <div className="card card-glow-danger" style={{ marginTop: '2rem' }}>
             <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              🚫 การตัดสินใจอนุมัติ (Reviewer / Supervisor Decision)
+              🚫 การตัดสินใจอนุมัติ (การตัดสินใจของผู้ทบทวนหรือผู้บังคับบัญชา)
             </h2>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
               สำหรับหัวหน้าผู้ตรวจทาน: ยืนยันข้อมูลพยานหลักฐานและข้อกฎหมายที่นิติกรเสนอ
@@ -903,7 +904,7 @@ export default function CaseDetailPage() {
                 </div>
               ) : (
                 <div style={{ fontSize: '0.85rem', color: 'var(--color-warning)' }}>
-                  ⚠️ นิติกรยังไม่ได้กดยืนยันข้อกฎหมายประกอบคดีความนี้ (แนะนำให้นิติกรกดยืนยันมาตรากฎหมายก่อนอนุมัติคดี)
+                  นิติกรยังไม่ได้กดยืนยันข้อกฎหมายประกอบคดีความนี้ (แนะนำให้นิติกรกดยืนยันมาตรากฎหมายก่อนอนุมัติคดี)
                 </div>
               )}
             </div>
@@ -946,10 +947,10 @@ export default function CaseDetailPage() {
           </div>
         )}
 
-        {/* Audit Logs Timeline */}
+        {/* ประวัติการทำรายการ Timeline */}
         <div className="card" style={{ marginTop: '2rem' }}>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-            📜 ประวัติการตรวจสอบและการกระทำ (Audit Trail)
+             ประวัติการตรวจสอบและการกระทำ (ประวัติการทำรายการ)
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingLeft: '1rem', borderLeft: '2px solid var(--border-color)', position: 'relative' }}>
@@ -964,7 +965,7 @@ export default function CaseDetailPage() {
                   height: '10px',
                   borderRadius: '50%',
                   background: log.action.includes('APPROVED') ? 'var(--color-danger)' :
-                              log.action.includes('AI') ? 'var(--color-primary)' :
+                              log.action.includes('ระบบอัจฉริยะ') ? 'var(--color-primary)' :
                               log.action.includes('CREATE') ? 'var(--color-secondary)' : 'var(--text-muted)'
                 }}></div>
                 

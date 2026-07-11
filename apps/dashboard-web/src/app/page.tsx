@@ -2,15 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/api';
 
-/* ─── Preset Accounts (preserved) ─── */
-const presetAccounts = [
-  { label: 'ผู้ตรวจสอบ', email: 'inspector@fda.go.th' },
-  { label: 'นิติกร', email: 'legal@fda.go.th' },
-  { label: 'ผู้ทบทวน', email: 'reviewer@fda.go.th' },
-  { label: 'ผู้บริหาร', email: 'executive@fda.go.th' },
-  { label: 'ผู้ดูแลระบบ', email: 'admin@fda.go.th' },
-];
+type PublicMetrics = {
+  downloadClicks: number;
+  extensionInstalls: number;
+};
 
 /* ─── Inline SVG Components ─── */
 const ShieldLogo = () => (
@@ -168,6 +165,7 @@ export default function LandingPage() {
   /* Stats visibility */
   const [statsVisible, setStatsVisible] = useState(false);
   const statsRef = useRef<HTMLDivElement>(null);
+  const [metrics, setMetrics] = useState<PublicMetrics>({ downloadClicks: 0, extensionInstalls: 0 });
 
   /* Features visibility */
   const [featuresVisible, setFeaturesVisible] = useState(false);
@@ -178,8 +176,8 @@ export default function LandingPage() {
   const stepsRef = useRef<HTMLDivElement>(null);
 
   /* Animated counters */
-  const c1 = useCountUp(2400, 2000, statsVisible);
-  const c2 = useCountUp(987, 2000, statsVisible);
+  const c1 = useCountUp(metrics.downloadClicks, 1200, statsVisible);
+  const c2 = useCountUp(metrics.extensionInstalls, 1200, statsVisible);
   const c3 = useCountUp(3, 1200, statsVisible);
 
   /* Auth check (preserved) */
@@ -201,6 +199,42 @@ export default function LandingPage() {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    fetch(`${API_URL}/metrics/public`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!isCurrent || !data) return;
+        setMetrics({
+          downloadClicks: Number(data.downloadClicks) || 0,
+          extensionInstalls: Number(data.extensionInstalls) || 0,
+        });
+      })
+      .catch(() => {
+        // The public page remains usable when the API is temporarily unavailable.
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  const trackDownloadClick = () => {
+    fetch(`${API_URL}/metrics/download-click`, { method: 'POST' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setMetrics((current) => ({
+          ...current,
+          downloadClicks: Number(data.downloadClicks) || current.downloadClicks,
+        }));
+      })
+      .catch(() => {
+        // Analytics must never interrupt the installation journey.
+      });
+  };
 
   /* IntersectionObserver: Stats */
   useEffect(() => {
@@ -238,14 +272,19 @@ export default function LandingPage() {
     setLoading(true);
     setError('');
     const loginEmail = presetEmail || email;
-    const loginPassword = password || 'password123';
+    const loginPassword = password;
     if (!loginEmail) {
       setError('กรุณากรอกอีเมลเจ้าหน้าที่');
       setLoading(false);
       return;
     }
+    if (!loginPassword) {
+      setError('กรุณากรอกรหัสผ่าน');
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch('http://localhost:3001/auth/login', {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
@@ -265,8 +304,8 @@ export default function LandingPage() {
   const features = [
     {
       icon: <BrainIcon />,
-      title: 'วิเคราะห์เนื้อหาด้วย AI',
-      desc: 'Gemini AI วิเคราะห์ข้อความและรูปภาพโฆษณา เพื่อตรวจจับการอ้างสรรพคุณเกินจริงด้วยคะแนนความแม่นยำสูง',
+      title: 'วิเคราะห์เนื้อหาด้วย ระบบอัจฉริยะ',
+      desc: 'ระบบอัจฉริยะ Gemini วิเคราะห์ข้อความและรูปภาพโฆษณา เพื่อตรวจจับการอ้างสรรพคุณเกินจริงด้วยคะแนนความแม่นยำสูง',
       color: 'var(--color-primary)',
     },
     {
@@ -296,7 +335,7 @@ export default function LandingPage() {
     {
       icon: <LayersIcon />,
       title: 'การป้องกัน 3 ระดับ',
-      desc: 'MANUAL → AUTO_DETECT → AUTO_BLOCK — โหมดการบังคับใช้ที่ยืดหยุ่นสำหรับทุกสถานการณ์',
+      desc: 'ตรวจสอบโดยเจ้าหน้าที่ → ตรวจจับอัตโนมัติ → ปิดกั้นอัตโนมัติ รองรับการบังคับใช้ที่ยืดหยุ่นสำหรับทุกสถานการณ์',
       color: '#dc2626',
     },
   ];
@@ -305,20 +344,20 @@ export default function LandingPage() {
     {
       num: '01',
       icon: <DownloadIcon />,
-      title: 'ติดตั้ง Extension',
+      title: 'ติดตั้งส่วนขยาย',
       desc: 'เพิ่ม Sentinel ADS ใน Chrome เพียงคลิกเดียว ไม่ต้องตั้งค่าใดๆ',
     },
     {
       num: '02',
       icon: <GlobeIcon />,
       title: 'ใช้งานเว็บตามปกติ',
-      desc: 'Extension จะตรวจสอบทุกแท็บและทุกหน้าเว็บที่โหลดแบบเรียลไทม์โดยอัตโนมัติ',
+      desc: 'ส่วนขยายจะตรวจสอบทุกแท็บและทุกหน้าเว็บที่โหลดแบบทันทีโดยอัตโนมัติ',
     },
     {
       num: '03',
       icon: <RadarIcon />,
       title: 'ตรวจจับการละเมิดอัตโนมัติ',
-      desc: 'AI ตรวจจับ ให้คะแนน และบล็อกโฆษณาสุขภาพผิดกฎหมาย พร้อมบันทึกเข้าแดชบอร์ดทันที',
+      desc: 'ระบบอัจฉริยะ ตรวจจับ ให้คะแนน และบล็อกโฆษณาสุขภาพผิดกฎหมาย พร้อมบันทึกเข้าแดชบอร์ดทันที',
     },
   ];
 
@@ -344,7 +383,7 @@ export default function LandingPage() {
           {/* CTA */}
           <a href="#download" className="lp-nav__cta" id="nav-cta-install">
             <ChromeIcon />
-            ติดตั้ง Extension – ฟรี
+                ติดตั้งส่วนขยาย – ฟรี
           </a>
         </div>
       </nav>
@@ -361,7 +400,7 @@ export default function LandingPage() {
           <div className="lp-hero__content">
             <span className="lp-chip">
               <CheckIcon />
-              เครื่องมือบังคับใช้กฎหมาย อย. ด้วย AI
+              เครื่องมือบังคับใช้กฎหมาย อย. ด้วย ระบบอัจฉริยะ
             </span>
 
             <h1 className="lp-hero__headline" id="hero-heading">
@@ -374,14 +413,14 @@ export default function LandingPage() {
             </p>
 
             <p className="lp-hero__desc">
-              Browser Extension ที่ขับเคลื่อนด้วย AI ตรวจจับ แจ้งเตือน และบล็อกโฆษณาผลิตภัณฑ์สุขภาพผิดกฎหมายแบบเรียลไทม์
+              ส่วนขยายเบราว์เซอร์ ที่ขับเคลื่อนด้วย ระบบอัจฉริยะ ตรวจจับ แจ้งเตือน และบล็อกโฆษณาผลิตภัณฑ์สุขภาพผิดกฎหมายแบบเรียลไทม์
               พัฒนาขึ้นสำหรับเจ้าหน้าที่บังคับใช้กฎหมาย อย. และการคุ้มครองประชาชน
             </p>
 
             <div className="lp-hero__actions">
               <a href="#download" className="lp-btn lp-btn--primary lp-btn--pulse" id="hero-cta-install">
                 <ChromeIcon />
-                ติดตั้ง Chrome Extension – ฟรี
+                ติดตั้ง ส่วนขยาย Chrome – ฟรี
               </a>
               <a href="#login" className="lp-btn lp-btn--outline" id="hero-cta-login">
                 เข้าสู่ระบบเจ้าหน้าที่
@@ -390,7 +429,7 @@ export default function LandingPage() {
             </div>
 
             <div className="lp-hero__trust" role="list" aria-label="ตราสัญลักษณ์ความน่าเชื่อถือ">
-              {['ขับเคลื่อนด้วย AI', 'ถูกต้องตามกฎหมาย อย.', 'บล็อกแบบเรียลไทม์'].map((t) => (
+              {['ขับเคลื่อนด้วย ระบบอัจฉริยะ', 'ถูกต้องตามกฎหมาย อย.', 'บล็อกแบบเรียลไทม์'].map((t) => (
                 <span key={t} className="lp-trust-badge" role="listitem">
                   <CheckIcon />
                   {t}
@@ -446,12 +485,12 @@ export default function LandingPage() {
 
               <div className="ext-card__alert">
                 <div className="ext-alert-dot" />
-                <span>ตรวจพบการอ้างสรรพคุณผิดกฎหมาย — เปิดใช้ AUTO_BLOCK</span>
+                <span>ตรวจพบการอ้างสรรพคุณผิดกฎหมาย — เปิดใช้การปิดกั้นอัตโนมัติ</span>
               </div>
 
               <div className="ext-card__modes">
-                {['MANUAL', 'AUTO_DETECT', 'AUTO_BLOCK'].map((m) => (
-                  <span key={m} className={`ext-mode${m === 'AUTO_BLOCK' ? ' ext-mode--active' : ''}`}>{m}</span>
+                {[['MANUAL', 'เจ้าหน้าที่'], ['AUTO_DETECT', 'ตรวจจับอัตโนมัติ'], ['AUTO_BLOCK', 'ปิดกั้นอัตโนมัติ']].map(([value, label]) => (
+                  <span key={value} className={`ext-mode${value === 'AUTO_BLOCK' ? ' ext-mode--active' : ''}`}>{label}</span>
                 ))}
               </div>
             </div>
@@ -463,13 +502,13 @@ export default function LandingPage() {
       <section className="lp-stats" ref={statsRef} aria-label="สถิติของแพลตฟอร์ม">
         <div className="lp-stats__inner">
           <div className="lp-stat-item">
-            <span className="lp-stat-num">{statsVisible ? c1.toLocaleString() : '0'}+</span>
-            <span className="lp-stat-label">โฆษณาผิดกฎหมายที่บล็อก</span>
+            <span className="lp-stat-num">{statsVisible ? c1.toLocaleString() : '0'}</span>
+            <span className="lp-stat-label">คลิกเพื่อติดตั้งส่วนขยาย</span>
           </div>
           <div className="lp-stats__divider" aria-hidden="true" />
           <div className="lp-stat-item">
-            <span className="lp-stat-num">{statsVisible ? (c2 / 10).toFixed(1) : '0'}%</span>
-            <span className="lp-stat-label">ความแม่นยำในการตรวจจับ</span>
+            <span className="lp-stat-num">{statsVisible ? c2.toLocaleString() : '0'}</span>
+            <span className="lp-stat-label">ติดตั้งและเปิดใช้งานแล้ว</span>
           </div>
           <div className="lp-stats__divider" aria-hidden="true" />
           <div className="lp-stat-item">
@@ -479,7 +518,7 @@ export default function LandingPage() {
           <div className="lp-stats__divider" aria-hidden="true" />
           <div className="lp-stat-item">
             <span className="lp-stat-num">เรียลไทม์</span>
-            <span className="lp-stat-label">ระบบวิเคราะห์ด้วย AI</span>
+            <span className="lp-stat-label">ระบบวิเคราะห์ด้วย ระบบอัจฉริยะ</span>
           </div>
         </div>
       </section>
@@ -493,7 +532,7 @@ export default function LandingPage() {
               ทุกสิ่งที่คุณต้องการในการบังคับใช้กฎหมายโฆษณา
             </h2>
             <p className="lp-section__subtitle">
-              ชุดระบบอัจฉริยะครบวงจร — ตั้งแต่การตรวจจับด้วย AI แบบเรียลไทม์ ไปจนถึงการจัดการคดีทางกฎหมาย พัฒนาเพื่อ อย. โดยเฉพาะ
+              ชุดระบบอัจฉริยะครบวงจร — ตั้งแต่การตรวจจับด้วย ระบบอัจฉริยะ แบบเรียลไทม์ ไปจนถึงการจัดการคดีทางกฎหมาย พัฒนาเพื่อ อย. โดยเฉพาะ
             </p>
           </div>
 
@@ -553,22 +592,22 @@ export default function LandingPage() {
 
         <div className="lp-download__inner">
           <div className="lp-download__content">
-            <span className="lp-chip lp-chip--amber">Browser Extension ฟรี</span>
+            <span className="lp-chip lp-chip--amber">ส่วนขยายเบราว์เซอร์ ฟรี</span>
             <h2 className="lp-download__title" id="download-heading">
               เริ่มปกป้องประชาชนได้เลยวันนี้
             </h2>
             <p className="lp-download__subtitle">
-              ติดตั้ง Sentinel ADS Chrome Extension ภายในไม่กี่วินาที ฟรี 100% ไม่ต้องสร้างบัญชี
+              ติดตั้ง Sentinel ADS ส่วนขยาย Chrome ภายในไม่กี่วินาที ฟรี 100% ไม่ต้องสร้างบัญชี
             </p>
 
-            <a href="#" className="lp-btn lp-btn--chrome lp-btn--pulse" id="download-cta-chrome">
+            <a href="#" className="lp-btn lp-btn--chrome lp-btn--pulse" id="download-cta-chrome" onClick={trackDownloadClick}>
               <ChromeIcon />
               เพิ่มใน Chrome – ติดตั้งฟรี
             </a>
 
             <p className="lp-download__alts">
               วิธีอื่น:{' '}
-              <a href="#" className="lp-link" id="download-alt-zip">ติดตั้งด้วยตนเอง (.zip)</a>
+              <a href="#" className="lp-link" id="download-alt-zip" onClick={trackDownloadClick}>ติดตั้งด้วยตนเอง (.zip)</a>
               {' | '}
               <a href="#" className="lp-link" id="download-alt-github">ซอร์สโค้ด (GitHub)</a>
             </p>
@@ -648,7 +687,7 @@ export default function LandingPage() {
                 <input
                   id="login-password"
                   type="password"
-                  placeholder="password123"
+                  placeholder="กรอกรหัสผ่าน"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
@@ -656,35 +695,9 @@ export default function LandingPage() {
                 />
               </div>
               <button type="submit" id="login-submit-btn" className="btn btn-primary login-panel__submit" disabled={loading}>
-                {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ Control Center'}
+                {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ ศูนย์ควบคุม'}
               </button>
             </form>
-
-            <div className="login-panel__divider">
-              <span>บัญชีทดสอบด่วน</span>
-            </div>
-
-            <div className="preset-grid">
-              {presetAccounts.map((account) => (
-                <button
-                  key={account.email}
-                  id={`preset-${account.label.toLowerCase()}`}
-                  onClick={() => {
-                    setEmail(account.email);
-                    setPassword('password123');
-                    handleLogin(undefined, account.email);
-                  }}
-                  className="btn btn-secondary"
-                  disabled={loading}
-                >
-                  {account.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="login-panel__note">
-              ใช้ seed data มาตรฐาน: รหัสผ่านเริ่มต้นคือ <code>password123</code>
-            </div>
           </div>
         </div>
       </section>

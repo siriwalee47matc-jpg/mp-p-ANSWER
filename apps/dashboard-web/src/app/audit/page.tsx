@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
+import { API_URL } from '@/lib/api';
 
 export default function AuditLogsPage() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function AuditLogsPage() {
     }
 
     try {
-      const res = await fetch('http://localhost:3001/audit-logs', {
+      const res = await fetch(`${API_URL}/audit-logs`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
@@ -50,11 +51,11 @@ export default function AuditLogsPage() {
       <main className="container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <h1 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>บันทึกประวัติการทำรายการ (Audit Logs)</h1>
+            <h1 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>บันทึกประวัติการทำรายการ (ประวัติการทำรายการ)</h1>
             <p style={{ color: 'var(--text-muted)' }}>ข้อมูลตรวจสอบย้อนกลับรอยเท้าการทำงานของเจ้าหน้าที่รัฐและการรันของระบบคอมพิวเตอร์</p>
           </div>
           <button onClick={fetchLogs} className="btn btn-secondary">
-            🔄 รีเฟรชประวัติ
+            รีเฟรชประวัติ
           </button>
         </div>
 
@@ -67,7 +68,7 @@ export default function AuditLogsPage() {
             padding: '1rem',
             marginBottom: '1.5rem'
           }}>
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -77,7 +78,7 @@ export default function AuditLogsPage() {
           </div>
         ) : logs.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '4rem' }}>
-            <span style={{ fontSize: '3rem' }}>📜</span>
+            <span style={{ fontSize: '3rem' }}></span>
             <h3 style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>ไม่พบประวัติการทำรายการ</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ระบบยังไม่พบบันทึกประวัติประวัติความเคลื่อนไหวใดๆ</p>
           </div>
@@ -88,8 +89,8 @@ export default function AuditLogsPage() {
                 <tr>
                   <th style={{ width: '220px' }}>วันเวลาประทับ</th>
                   <th style={{ width: '150px' }}>รหัสคดี</th>
-                  <th style={{ width: '180px' }}>การกระทำ (Action)</th>
-                  <th>รายละเอียด (Details)</th>
+                  <th style={{ width: '180px' }}>การกระทำ (การดำเนินการ)</th>
+                  <th>รายละเอียด (รายละเอียด)</th>
                   <th style={{ width: '250px' }}>เจ้าหน้าที่ / ผู้รันระบบ</th>
                 </tr>
               </thead>
@@ -110,11 +111,11 @@ export default function AuditLogsPage() {
                         fontSize: '0.75rem',
                         fontWeight: 700,
                         background: log.action.includes('APPROVED') ? 'rgba(239, 68, 68, 0.12)' :
-                                    log.action.includes('AI') ? 'rgba(139, 92, 246, 0.12)' :
+                                    log.action.includes('ระบบอัจฉริยะ') ? 'rgba(139, 92, 246, 0.12)' :
                                     log.action.includes('CONFIRM') ? 'rgba(245, 158, 11, 0.12)' :
                                     'rgba(255, 255, 255, 0.05)',
                         color: log.action.includes('APPROVED') ? 'var(--color-danger)' :
-                               log.action.includes('AI') ? 'var(--color-primary)' :
+                               log.action.includes('ระบบอัจฉริยะ') ? 'var(--color-primary)' :
                                log.action.includes('CONFIRM') ? 'var(--color-warning)' :
                                'var(--text-main)',
                         border: '1px solid rgba(255,255,255,0.05)'
@@ -132,7 +133,7 @@ export default function AuditLogsPage() {
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{log.user.email} [{log.user.role}]</div>
                         </div>
                       ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>System / Anonymous Client</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>ระบบ / ผู้ใช้นิรนาม</span>
                       )}
                     </td>
                   </tr>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import { CaseStatus, ProductType } from '@kp-ads/shared';
+import { API_URL } from '@/lib/api';
 
 function pct(part: number, total: number) {
   if (!total) return 0;
@@ -35,10 +36,10 @@ export default function DashboardPage() {
 
     try {
       const [casesRes, domainsRes] = await Promise.all([
-        fetch('http://localhost:3001/cases', {
+        fetch(`${API_URL}/cases`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch('http://localhost:3001/domains', {
+        fetch(`${API_URL}/domains`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -115,10 +116,10 @@ export default function DashboardPage() {
       <main className="container">
         <section className="command-grid command-grid--hero" style={{ marginBottom: '1.25rem' }}>
           <div className="card command-hero">
-            <span className="command-hero__eyebrow">Sentinel Executive Command</span>
-            <h1 className="command-hero__title">Dashboard ควบคุมภารกิจเฝ้าระวังโฆษณาผิดกฎหมาย</h1>
+            <span className="command-hero__eyebrow">ศูนย์บัญชาการ Sentinel ADS</span>
+            <h1 className="command-hero__title">ภาพรวมการควบคุมภารกิจเฝ้าระวังโฆษณาผิดกฎหมาย</h1>
             <p className="command-hero__description">
-              มอนิเตอร์คดี, ความเสี่ยง, blacklist, auto-detect pipeline และสถานะการบังคับใช้กฎหมายจากจุดเดียว
+              ติดตามคดี ความเสี่ยง รายการปิดกั้น กระบวนการตรวจจับอัตโนมัติ และสถานะการบังคับใช้กฎหมายจากจุดเดียว
               พร้อมมุมมองสำหรับผู้บริหารและหัวหน้าชุดปฏิบัติการ
             </p>
             <div className="command-actions">
@@ -126,7 +127,7 @@ export default function DashboardPage() {
                 รีเฟรชภาพรวมระบบ
               </button>
               <button className="btn btn-secondary" onClick={() => router.push('/risk-logs')}>
-                เปิด Auto Risk Stream
+                เปิด Auto ความเสี่ยง Stream
               </button>
               <button className="btn btn-secondary" onClick={() => router.push('/cases')}>
                 ไปยังห้องปฏิบัติการคดี
@@ -144,21 +145,21 @@ export default function DashboardPage() {
             <div className="command-pulse">
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>Auto-detect Intake</strong>
+                  <strong>คดีจากการตรวจจับอัตโนมัติ</strong>
                   <span>คดีที่สร้างโดยระบบสแกนอัตโนมัติ</span>
                 </div>
                 <div className="command-pulse__value">{stats.autoDetected}</div>
               </div>
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>High-Risk Queue</strong>
+                  <strong>คดีความเสี่ยงสูง</strong>
                   <span>คดีที่มีคะแนนความเสี่ยง 80% ขึ้นไป</span>
                 </div>
                 <div className="command-pulse__value">{stats.highRisk}</div>
               </div>
               <div className="command-pulse__item">
                 <div className="command-pulse__label">
-                  <strong>Average Risk Heat</strong>
+                  <strong>ค่าเฉลี่ยระดับความเสี่ยง</strong>
                   <span>ค่าความเสี่ยงเฉลี่ยของคดีทั้งหมด</span>
                 </div>
                 <div className="command-pulse__value">{stats.averageRisk}%</div>
@@ -184,15 +185,15 @@ export default function DashboardPage() {
                 <span className="metric-card__label">คดีทั้งหมด</span>
                 <div className="metric-card__headline">
                   <div className="metric-card__value">{stats.totalCases}</div>
-                  <span className="metric-card__delta good">Live</span>
+                  <span className="metric-card__delta good">ปัจจุบัน</span>
                 </div>
-                <div className="metric-card__footer">รวมทั้งคดีจากประชาชน เจ้าหน้าที่ และระบบ auto-scan</div>
+                <div className="metric-card__footer">รวมคดีจากประชาชน เจ้าหน้าที่ และระบบตรวจจับอัตโนมัติ</div>
               </div>
               <div className="card metric-card card-glow-warning">
                 <span className="metric-card__label">คิวรอตรวจ</span>
                 <div className="metric-card__headline">
                   <div className="metric-card__value">{stats.pendingCases + stats.reviewCases}</div>
-                  <span className="metric-card__delta warn">Action</span>
+                  <span className="metric-card__delta warn">การดำเนินการ</span>
                 </div>
                 <div className="metric-card__footer">คดีที่ยังต้องผ่านการตรวจสอบหรือยืนยันข้อกฎหมาย</div>
               </div>
@@ -202,15 +203,15 @@ export default function DashboardPage() {
                   <div className="metric-card__value">{stats.blockedCases}</div>
                   <span className="metric-card__delta critical">{pct(stats.blockedCases, stats.totalCases)}%</span>
                 </div>
-                <div className="metric-card__footer">คดีที่จบด้วยการระงับหรือเพิ่มเข้า blacklist แล้ว</div>
+                <div className="metric-card__footer">คดีที่จบด้วยการระงับหรือเพิ่มเข้ารายการปิดกั้นแล้ว</div>
               </div>
               <div className="card metric-card card-glow-blue">
                 <span className="metric-card__label">บัญชีโดเมนเสี่ยง</span>
                 <div className="metric-card__headline">
                   <div className="metric-card__value">{blockedDomains.length}</div>
-                  <span className="metric-card__delta good">Shielded</span>
+                  <span className="metric-card__delta good">อยู่ภายใต้การคุ้มครอง</span>
                 </div>
-                <div className="metric-card__footer">โดเมนที่ระบบพร้อมปิดกั้นทันทีเมื่อ extension ตรวจพบ</div>
+                <div className="metric-card__footer">โดเมนที่ระบบพร้อมปิดกั้นทันทีเมื่อ ส่วนขยาย ตรวจพบ</div>
               </div>
             </section>
 
@@ -218,15 +219,15 @@ export default function DashboardPage() {
               <div className="card">
                 <div className="panel-heading">
                   <div>
-                    <h3>Risk Pipeline</h3>
+                    <h3>ความเสี่ยง Pipeline</h3>
                     <p>การไหลของคดีตั้งแต่รับเข้าไปจนถึงการบล็อก</p>
                   </div>
                 </div>
                 <div className="status-strip">
                   {[
-                    { label: 'Pending', count: stats.pendingCases, status: CaseStatus.PENDING },
-                    { label: 'Under Review', count: stats.reviewCases, status: CaseStatus.UNDER_REVIEW },
-                    { label: 'Blocked', count: stats.blockedCases, status: CaseStatus.APPROVED_BLOCKED },
+                    { label: 'รอตรวจสอบ', count: stats.pendingCases, status: CaseStatus.PENDING },
+                    { label: 'อยู่ระหว่างตรวจสอบ', count: stats.reviewCases, status: CaseStatus.UNDER_REVIEW },
+                    { label: 'ปิดกั้นแล้ว', count: stats.blockedCases, status: CaseStatus.APPROVED_BLOCKED },
                     { label: 'Rejected', count: stats.rejectedCases, status: CaseStatus.REJECTED },
                   ].map((entry) => (
                     <div key={entry.label} className="status-strip__row">
@@ -276,7 +277,7 @@ export default function DashboardPage() {
               <div className="card">
                 <div className="panel-heading">
                   <div>
-                    <h3>Product Heatmap</h3>
+                    <h3>ภาพรวมตามประเภทผลิตภัณฑ์</h3>
                     <p>กลุ่มผลิตภัณฑ์ที่กำลังเป็นเป้าหมายของโฆษณาเสี่ยง</p>
                   </div>
                 </div>
@@ -299,7 +300,7 @@ export default function DashboardPage() {
               <div className="card">
                 <div className="panel-heading">
                   <div>
-                    <h3>Live Intel Feed</h3>
+                    <h3>เหตุการณ์ล่าสุด</h3>
                     <p>เคสล่าสุดที่เพิ่งไหลเข้าห้องปฏิบัติการคดี</p>
                   </div>
                 </div>
@@ -331,19 +332,19 @@ export default function DashboardPage() {
             <section className="card">
               <div className="panel-heading">
                 <div>
-                  <h3>Active Blacklisted Domains</h3>
-                  <p>รายการโดเมนที่พร้อมบังคับใช้ทันทีใน extension และ workflow ด้านกฎหมาย</p>
+                  <h3>โดเมนที่ถูกปิดกั้นอยู่</h3>
+                  <p>รายการโดเมนที่พร้อมบังคับใช้ทันทีใน ส่วนขยาย และ กระบวนการทำงาน ด้านกฎหมาย</p>
                 </div>
               </div>
 
               {blockedDomains.length === 0 ? (
-                <div style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>ยังไม่มีโดเมนที่ถูกเพิ่มใน blacklist</div>
+                <div style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>ยังไม่มีโดเมนที่ถูกเพิ่มในรายการปิดกั้น</div>
               ) : (
                 <div className="table-wrapper">
                   <table>
                     <thead>
                       <tr>
-                        <th>Domain</th>
+                        <th>โดเมน</th>
                         <th>เหตุผล</th>
                         <th>วันที่บล็อก</th>
                       </tr>
