@@ -1,6 +1,7 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { LoginDto } from './login.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -12,7 +13,7 @@ export class AuthController {
   @ApiOperation({ summary: 'เข้าสู่ระบบด้วยอีเมลและรหัสผ่าน' })
   @ApiResponse({ status: 200, description: 'ล็อกอินสำเร็จ คืนค่า Token และประวัติผู้ใช้' })
   @ApiResponse({ status: 401, description: 'ข้อมูลประจำตัวไม่ถูกต้อง' })
-  async login(@Body() body: any) {
+  async login(@Body() body: LoginDto) {
     return this.authService.login(body.email, body.password);
   }
 }

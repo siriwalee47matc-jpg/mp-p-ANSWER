@@ -10,6 +10,7 @@ import { BlockModule } from './block/block.module';
 import { ConfigModule } from './config/config.module';
 import { AllowlistModule } from './allowlist/allowlist.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     BlockModule,
     ConfigModule,
     AllowlistModule,
+    MetricsModule,
     ScheduleModule.forRoot(),
   ],
 })
