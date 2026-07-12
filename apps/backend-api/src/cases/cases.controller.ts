@@ -183,9 +183,12 @@ export class BlocksController {
    */
   @Post()
   @ApiOperation({ summary: 'รับคำขอ Auto-Block จาก Extension (สาธารณะ)' })
-  async submitBlock(@Body() body: { tabId?: number; url?: string; caseId?: string }) {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.REVIEWER)
+  @ApiBearerAuth()
+  async submitBlock(@Body() body: { tabId?: number; url?: string; caseId?: string }, @Req() req: any) {
     if (body.caseId) {
-      return this.casesService.blockCase(body.caseId);
+      return this.casesService.blockCase(body.caseId, req.user.id);
     }
     return { success: false, message: 'caseId is required' };
   }

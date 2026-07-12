@@ -241,6 +241,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
 
     const hostname = normalizeDomain(activeTab.url);
     const domainData = await chrome.storage.local.get(['blockedDomains', 'allowlistDomains', 'scanHistory', 'riskLevel']);
+    const authData = await chrome.storage.local.get(['token', 'userRole']);
     const blockedList = domainData.blockedDomains || [];
     if (blockedList.some((d: any) => d.domain === hostname)) return;
 
@@ -372,19 +373,32 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       });
     }
 
-    if (blockDecision.eligible) {
-      try {
-        await fetch(`${API_URL}/block/case/${caseData.id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ performedByUserId: null }),
-        });
-        await syncBlockedDomains();
-      } catch (blockErr) {
-        console.error('Error auto-blocking domain:', blockErr);
-      }
+    const canAuthorizeBlock =
+      Boolean(authData.token) &&
+      (authData.userRole === 'ADMIN' || authData.userRole === 'REVIEWER');
 
-      chrome.tabs
+    if (blockDecision.eligible && canAuthorizeBlock) {
+      try {
+        const blockResponse = await fetch(`${API_URL}/blocks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authData.token}`,
+          },
+          body: JSON.stringify({ caseId: caseData.id }),
+        });
+
+        if (!blockResponse.ok) {
+          throw new Error(`Automatic block request was rejected (${blockResponse.status})`);
+        }
+
+        const blockResult = await blockResponse.json();
+        if (!blockResult.success) {
+          throw new Error(blockResult.reason || 'Automatic block request was rejected');
+        }
+
+        await syncBlockedDomains();
+        chrome.tabs
         .sendMessage(activeTab.id, {
           action: 'BLOCK_SCREEN',
           reason: `ระบบ Sentinel ADS ปิดกั้นการเข้าถึงอัตโนมัติ เนื่องจากพบโฆษณาสุขภาพผิดกฎหมายที่มีระดับความเสี่ยงสูงมาก (${score}%)`,
@@ -392,6 +406,9 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
         .catch((err) => {
           console.log('Failed to send block message to content script:', err);
         });
+      } catch (blockErr) {
+        console.error('Error auto-blocking domain:', blockErr);
+      }
     }
   } catch (err) {
     console.error('Background auto-scan error:', err);

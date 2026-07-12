@@ -517,7 +517,7 @@ export class CasesService {
     return updated;
   }
 
-  async blockCase(id: string) {
+  async blockCase(id: string, performedByUserId?: number) {
     const targetCase = await this.findOne(id);
     const allowlistEntry = await this.allowlistService.findMatchingDomain(targetCase.domain);
     if (allowlistEntry) {
@@ -529,14 +529,38 @@ export class CasesService {
       };
     }
 
+    const globalConfig = await this.prisma.globalConfig.findFirst();
+    const whoisInfo = typeof targetCase.whoisInfo === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(targetCase.whoisInfo);
+          } catch {
+            return null;
+          }
+        })()
+      : targetCase.whoisInfo;
+    const meetsAutomaticBlockPolicy =
+      globalConfig?.riskLevel === 'AUTO_BLOCK' &&
+      (targetCase.aiRiskScore ?? 0) >= 85 &&
+      targetCase.licenseStatus !== 'CHECK_OFFICIAL_SOURCE' &&
+      whoisInfo?.sourceType === 'REAL_OSINT';
+
+    if (!meetsAutomaticBlockPolicy) {
+      throw new ForbiddenException(
+        'This case does not meet the server-side automatic blocking policy. Use the reviewed case workflow instead.',
+      );
+    }
+
     await this.prisma.blockedDomain.upsert({
       where: { domain: targetCase.domain },
       update: {
         reason: `Auto-blocked by system (risk score: ${targetCase.aiRiskScore ?? 'N/A'}%) from case ${id}`,
+        addedByUserId: performedByUserId,
       },
       create: {
         domain: targetCase.domain,
         reason: `Auto-blocked by system (risk score: ${targetCase.aiRiskScore ?? 'N/A'}%) from case ${id}`,
+        addedByUserId: performedByUserId,
       },
     });
 
@@ -550,8 +574,9 @@ export class CasesService {
     await this.prisma.auditLog.create({
       data: {
         caseId: id,
+        userId: performedByUserId,
         action: 'AUTO_BLOCK',
-        details: `Domain ${targetCase.domain} auto-blocked by system. Risk score ${targetCase.aiRiskScore ?? 0}%`,
+        details: `Domain ${targetCase.domain} auto-blocked by an authorized user. Risk score ${targetCase.aiRiskScore ?? 0}%`,
       },
     });
 
