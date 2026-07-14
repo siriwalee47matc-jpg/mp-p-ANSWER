@@ -35,68 +35,41 @@ export class AiService {
     let aiFailureReason = provider ? `${provider} is not configured` : 'AI provider is not configured';
 
     if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
-      aiFailureReason = 'Gemini returned no valid analysis';
-      try {
-        const prompt = this.buildPrompt(analysisResult);
-        const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
-        const apiKey = process.env.GEMINI_API_KEY.trim();
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+      const prompt = this.buildPrompt(analysisResult);
+      const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+      const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash';
+      const models = primaryModel === fallbackModel ? [primaryModel] : [primaryModel, fallbackModel];
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          signal: AbortSignal.timeout(25000),
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              thinkingConfig: {
-                thinkingLevel: 'minimal',
-              },
-              responseMimeType: 'application/json',
-              responseSchema: {
-                type: 'OBJECT',
-                properties: {
-                  aiRiskScore: { type: 'NUMBER', description: 'Risk score from 0.0 to 100.0' },
-                  aiAnalysis: { type: 'STRING', description: 'Detailed analysis in Thai' }
-                },
-                required: ['aiRiskScore', 'aiAnalysis']
-              }
-            }
-          })
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            const parsed = JSON.parse(text.trim());
-            if (typeof parsed.aiRiskScore === 'number' && parsed.aiAnalysis) {
-              const updatedCase = await this.casesService.updateAiAnalysis(caseId, parsed.aiRiskScore, parsed.aiAnalysis);
-              analysisResult = {
-                ...analysisResult,
-                aiRiskScore: updatedCase.aiRiskScore,
-                aiAnalysis: updatedCase.aiAnalysis,
-              };
-              aiCompleted = true;
-              aiSource = 'GEMINI';
-              aiModel = modelName;
-              console.log(`[AiService] Gemini analysis complete for case ${caseId}. Risk Score: ${parsed.aiRiskScore}%`);
-            }
-          }
-        } else {
-          aiFailureReason = `Gemini API returned HTTP ${response.status}`;
-          const errText = await response.text();
-          console.error(`[AiService] Gemini API returned error status ${response.status}: ${errText}`);
+      for (const [index, modelName] of models.entries()) {
+        try {
+          const parsed = await this.requestGeminiAnalysis(
+            prompt,
+            process.env.GEMINI_API_KEY.trim(),
+            modelName,
+            index === 0 ? 15000 : 20000,
+          );
+          const updatedCase = await this.casesService.updateAiAnalysis(
+            caseId,
+            parsed.aiRiskScore,
+            parsed.aiAnalysis,
+          );
+          analysisResult = {
+            ...analysisResult,
+            aiRiskScore: updatedCase.aiRiskScore,
+            aiAnalysis: updatedCase.aiAnalysis,
+          };
+          aiCompleted = true;
+          aiSource = 'GEMINI';
+          aiModel = modelName;
+          console.log(`[AiService] Gemini analysis complete for case ${caseId} with ${modelName}. Risk Score: ${parsed.aiRiskScore}%`);
+          break;
+        } catch (error: any) {
+          const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+          aiFailureReason = timedOut
+            ? `${modelName} request timed out`
+            : `${modelName} request failed`;
+          console.error(`[AiService] ${aiFailureReason}:`, error);
         }
-      } catch (error: any) {
-        aiFailureReason =
-          error?.name === 'TimeoutError' || error?.name === 'AbortError'
-            ? 'Gemini request timed out after 25 seconds'
-            : 'Gemini request failed';
-        console.error('[AiService] Failed calling Gemini API:', error);
       }
     } else if (provider === 'openai' && process.env.OPENAI_API_KEY) {
       try {
@@ -216,6 +189,61 @@ export class AiService {
       analysisSource: aiSource,
       aiModel,
     };
+  }
+
+  private async requestGeminiAnalysis(
+    prompt: string,
+    apiKey: string,
+    modelName: string,
+    timeoutMs: number,
+  ): Promise<{ aiRiskScore: number; aiAnalysis: string }> {
+    const isGemini3 = /^gemini-3(?:\.|-)/.test(modelName);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        signal: AbortSignal.timeout(timeoutMs),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            thinkingConfig: isGemini3
+              ? { thinkingLevel: 'minimal' }
+              : { thinkingBudget: 0 },
+            maxOutputTokens: 1200,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                aiRiskScore: { type: 'NUMBER', description: 'Risk score from 0.0 to 100.0' },
+                aiAnalysis: { type: 'STRING', description: 'Detailed analysis in Thai' },
+              },
+              required: ['aiRiskScore', 'aiAnalysis'],
+            },
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Gemini API returned HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      throw new Error('Gemini returned an empty response');
+    }
+
+    const parsed = JSON.parse(text.trim());
+    if (typeof parsed.aiRiskScore !== 'number' || typeof parsed.aiAnalysis !== 'string') {
+      throw new Error('Gemini returned an invalid analysis schema');
+    }
+
+    return parsed;
   }
 
   private buildPrompt(caseData: any): string {
