@@ -43,6 +43,27 @@ async function readApiJson(response: Response, operation: string) {
   }
 }
 
+async function ensureApiReady() {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(`${API_URL}/metrics/public`, {
+        signal: AbortSignal.timeout(60000),
+        cache: 'no-store',
+      });
+      await readApiJson(response, 'API readiness check');
+      if (response.ok) return;
+    } catch (error) {
+      lastError = error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('API readiness check failed');
+}
+
 async function syncBlockedDomains() {
   try {
     const res = await fetch(`${API_URL}/domains`);
@@ -274,6 +295,8 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     // Bypass cache check for local testing URLs (localhost, 127.0.0.1, or file://) to make development testing seamless
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || activeTab.url.startsWith('file://') || !hostname;
     if (!isLocal && (now - (scanHistory[historyKey] || 0) < 1 * 60 * 1000)) return;
+
+    await ensureApiReady();
 
     let pageSignals: any = null;
     try {

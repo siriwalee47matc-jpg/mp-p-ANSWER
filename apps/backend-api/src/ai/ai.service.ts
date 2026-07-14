@@ -32,8 +32,10 @@ export class AiService {
     let aiCompleted = false;
     let aiSource: 'GEMINI' | 'OPENAI' | 'ANTHROPIC' | null = null;
     let aiModel: string | null = null;
+    let aiFailureReason = provider ? `${provider} is not configured` : 'AI provider is not configured';
 
     if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
+      aiFailureReason = 'Gemini returned no valid analysis';
       try {
         const prompt = this.buildPrompt(analysisResult);
         const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
@@ -46,10 +48,13 @@ export class AiService {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey,
           },
-          signal: AbortSignal.timeout(18000),
+          signal: AbortSignal.timeout(25000),
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
+              thinkingConfig: {
+                thinkingLevel: 'minimal',
+              },
               responseMimeType: 'application/json',
               responseSchema: {
                 type: 'OBJECT',
@@ -82,10 +87,15 @@ export class AiService {
             }
           }
         } else {
+          aiFailureReason = `Gemini API returned HTTP ${response.status}`;
           const errText = await response.text();
           console.error(`[AiService] Gemini API returned error status ${response.status}: ${errText}`);
         }
-      } catch (error) {
+      } catch (error: any) {
+        aiFailureReason =
+          error?.name === 'TimeoutError' || error?.name === 'AbortError'
+            ? 'Gemini request timed out after 25 seconds'
+            : 'Gemini request failed';
         console.error('[AiService] Failed calling Gemini API:', error);
       }
     } else if (provider === 'openai' && process.env.OPENAI_API_KEY) {
@@ -187,7 +197,7 @@ export class AiService {
       if (process.env.NODE_ENV === 'production') {
         await this.casesService.clearAiAnalysis(
           caseId,
-          `External AI provider did not return a valid result (provider: ${provider || 'not configured'}).`,
+          `External AI provider did not return a valid result (provider: ${provider || 'not configured'}; reason: ${aiFailureReason}).`,
         );
         throw new ServiceUnavailableException(
           'บริการ AI จริงไม่พร้อมใช้งานในขณะนี้ ระบบจะไม่แสดงผลวิเคราะห์จากกฎพื้นฐานแทน AI',

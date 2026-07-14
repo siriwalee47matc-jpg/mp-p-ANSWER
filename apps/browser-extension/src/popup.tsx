@@ -34,6 +34,29 @@ const readApiJson = async (response: Response, operation: string) => {
   }
 };
 
+const ensureApiReady = async () => {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(`${API_URL}/metrics/public`, {
+        signal: AbortSignal.timeout(60000),
+        cache: 'no-store',
+      });
+      await readApiJson(response, 'เตรียมเซิร์ฟเวอร์');
+      if (response.ok) return;
+    } catch (error) {
+      lastError = error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์วิเคราะห์ได้ กรุณาลองอีกครั้ง');
+};
+
 const getRiskLevelText = (score: number) => {
   if (score >= 80) return `สูงมาก (${score}%)`;
   if (score >= 50) return `ปานกลาง (${score}%)`;
@@ -239,59 +262,6 @@ function Popup() {
     setScanStepIndex(-1);
   };
 
-  const runQuietScan = async (tab: chrome.tabs.Tab | null) => {
-    if (!tab || !tab.url) return;
-    if (!tab.url.startsWith('http://') && !tab.url.startsWith('https://') && !tab.url.startsWith('file://')) return;
-    try {
-      let pageSnippet = '';
-      let fdaNumber = '';
-      if (typeof chrome !== 'undefined' && chrome.scripting) {
-        try {
-          const results = await chrome.scripting.executeScript({
-            target: { tabId: tab.id! },
-            func: () => {
-              const txt = document.body.innerText || '';
-              const match = txt.match(/\d{2}-\d-\d{5}-\d-\d{4}/);
-              return { text: txt.substring(0, 800), fda: match ? match[0] : '' };
-            }
-          });
-          if (results && results[0] && results[0].result) {
-            pageSnippet = results[0].result.text;
-            fdaNumber = results[0].result.fda;
-          }
-        } catch (e) {}
-      } else {
-        pageSnippet = 'ผลิตภัณฑ์สมุนไพรลดน้ำหนักสูตรเร่งด่วน ผอมจริงใน 3 วัน ปลอดภัย 100% หายห่วงเรื่องโยโย่เอฟเฟกต์';
-        fdaNumber = '10-1-12345-1-0001';
-      }
-
-      const res = await fetch(`${API_URL}/cases`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: tab.title || 'โฆษณาต้องสงสัย',
-          url: tab.url,
-          productType: classifyProductType(`${tab.title || ''}\n${tab.url}\n${pageSnippet}`),
-          productLicenseNumber: fdaNumber || undefined,
-          evidenceText: pageSnippet || 'แจ้งจากระบบ Ad Shield'
-        })
-      });
-      const caseData = await readApiJson(res, 'สร้างรายการตรวจสอบ');
-      if (!res.ok) return;
-
-      const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
-        method: 'POST'
-      });
-      const analyzeData = await readApiJson(analyzeRes, 'วิเคราะห์ด้วย AI');
-      if (!analyzeRes.ok) return;
-
-      setAiAnalysisResult(analyzeData);
-      setDismissedNotification(false);
-    } catch (err) {
-      console.error('Quiet scan failed:', err);
-    }
-  };
-
   useEffect(() => {
     // Get active tab info
     if (typeof chrome !== 'undefined' && chrome.tabs) {
@@ -316,8 +286,6 @@ function Popup() {
                 matchingRules: []
               });
               setDismissedNotification(false);
-            } else {
-              runQuietScan(tab);
             }
           });
         }
@@ -331,7 +299,6 @@ function Popup() {
       } as any;
       setCurrentTab(mockTab);
       setCitizenTitle(mockTab.title);
-      runQuietScan(mockTab);
     }
 
     // Load saved settings
@@ -406,6 +373,7 @@ function Popup() {
     setAiAnalysisResult(null);
     setCreatedCaseId(null);
     try {
+      await ensureApiReady();
       let pageSnippet = '';
       if (typeof chrome !== 'undefined' && chrome.scripting) {
         try {
@@ -497,6 +465,7 @@ function Popup() {
     setAiAnalysisResult(null);
     setCreatedCaseId(null);
     try {
+      await ensureApiReady();
       // Extract text and license
       let pageText = '';
       let detectedLicense = '';
@@ -565,6 +534,7 @@ function Popup() {
     setAiAnalysisResult(null);
     setCreatedCaseId(null);
     try {
+      await ensureApiReady();
       const targetUrl = customUrlInput.trim() || 'manual-input://custom-text';
       const targetTitle = customUrlInput.trim() ? `สแกนด้วยตนเอง: ${customUrlInput}` : 'ตรวจสแกนข้อความโฆษณา';
       const targetText = customAdText.trim() || `สแกน URL กำหนดเอง: ${customUrlInput}`;

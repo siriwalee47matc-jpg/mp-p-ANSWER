@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sentinel ADS",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "เฝ้าระวังภัยโฆษณาเกินจริง (Ad Shield) สำหรับประชาชน และเครื่องมือสืบหาหลักฐานคดีโฆษณาสุขภาพผิดกฎหมายสำหรับเจ้าหน้าที่",
   "permissions": [
     "activeTab",
