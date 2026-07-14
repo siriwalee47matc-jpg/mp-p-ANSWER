@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { API_URL, DASHBOARD_URL } from './config';
+import { analyzeCaseWithRetry } from './analysis-api';
 import './popup.css';
 
 export enum ProductType {
@@ -401,11 +402,16 @@ function Popup() {
       setCreatedCaseId(caseData.id);
 
       // Call ระบบอัจฉริยะ analysis
-      const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
-        method: 'POST'
+      const analyzeData = await analyzeCaseWithRetry({
+        apiUrl: API_URL,
+        caseId: caseData.id,
+        readJson: readApiJson,
+        operation: 'วิเคราะห์ด้วย AI',
+        fallbackMessage: 'การวิเคราะห์ ระบบอัจฉริยะ ล้มเหลว',
+        onRetry: ({ attempt, delayMs, error }) => {
+          console.warn(`AI analysis attempt ${attempt} failed; retrying in ${delayMs}ms:`, error.message);
+        },
       });
-      const analyzeData = await readApiJson(analyzeRes, 'วิเคราะห์ด้วย AI');
-      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การวิเคราะห์ ระบบอัจฉริยะ ล้มเหลว');
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);
       setShowDetails(true);
@@ -507,12 +513,17 @@ function Popup() {
       if (!createRes.ok) throw new Error(caseData.message || 'บันทึกสร้างเคสล้มเหลว');
       setCreatedCaseId(caseData.id);
       // ระบบอัจฉริยะ analysis
-      const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${officerToken}` }
+      const analyzeData = await analyzeCaseWithRetry({
+        apiUrl: API_URL,
+        caseId: caseData.id,
+        headers: { Authorization: `Bearer ${officerToken}` },
+        readJson: readApiJson,
+        operation: 'วิเคราะห์ด้วย AI',
+        fallbackMessage: 'การเรียก ระบบอัจฉริยะ วิเคราะห์ล้มเหลว',
+        onRetry: ({ attempt, delayMs, error }) => {
+          console.warn(`AI analysis attempt ${attempt} failed; retrying in ${delayMs}ms:`, error.message);
+        },
       });
-      const analyzeData = await readApiJson(analyzeRes, 'วิเคราะห์ด้วย AI');
-      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การเรียก ระบบอัจฉริยะ วิเคราะห์ล้มเหลว');
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);
       setShowDetails(true);
@@ -558,12 +569,17 @@ function Popup() {
       setCreatedCaseId(caseData.id);
 
       // ระบบอัจฉริยะ analysis
-      const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${officerToken}` }
+      const analyzeData = await analyzeCaseWithRetry({
+        apiUrl: API_URL,
+        caseId: caseData.id,
+        headers: { Authorization: `Bearer ${officerToken}` },
+        readJson: readApiJson,
+        operation: 'วิเคราะห์ด้วย AI',
+        fallbackMessage: 'การเรียก ระบบอัจฉริยะ วิเคราะห์ล้มเหลว',
+        onRetry: ({ attempt, delayMs, error }) => {
+          console.warn(`AI analysis attempt ${attempt} failed; retrying in ${delayMs}ms:`, error.message);
+        },
       });
-      const analyzeData = await readApiJson(analyzeRes, 'วิเคราะห์ด้วย AI');
-      if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การเรียก ระบบอัจฉริยะ วิเคราะห์ล้มเหลว');
 
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);

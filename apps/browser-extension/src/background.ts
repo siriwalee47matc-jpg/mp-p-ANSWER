@@ -1,5 +1,6 @@
 // Background Service Worker for Sentinel ADS Shield
 import { API_URL } from './config';
+import { analyzeCaseWithRetry } from './analysis-api';
 export {};
 
 type AllowlistEntry = {
@@ -356,11 +357,16 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     if (!createRes.ok) throw new Error('Failed to create background case');
     const caseData = await readApiJson(createRes, 'Case creation');
 
-    const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
-      method: 'POST',
+    const aiResult = await analyzeCaseWithRetry({
+      apiUrl: API_URL,
+      caseId: caseData.id,
+      readJson: readApiJson,
+      operation: 'AI analysis',
+      fallbackMessage: 'AI analysis failed',
+      onRetry: ({ attempt, delayMs, error }) => {
+        console.warn(`AI analysis attempt ${attempt} failed; retrying in ${delayMs}ms:`, error.message);
+      },
     });
-    if (!analyzeRes.ok) throw new Error('AI analysis failed');
-    const aiResult = await readApiJson(analyzeRes, 'AI analysis');
     const score = aiResult.aiRiskScore || 0;
     const blockDecision = buildAutoBlockDecision(aiResult, riskLevel, allowlistEntry);
 
