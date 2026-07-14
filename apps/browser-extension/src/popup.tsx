@@ -16,6 +16,24 @@ export enum ProductType {
 
 type Mode = 'CONSUMER' | 'OFFICER';
 
+const readApiJson = async (response: Response, operation: string) => {
+  const contentType = response.headers.get('content-type') || '';
+  const rawBody = await response.text();
+
+  if (!contentType.toLowerCase().includes('application/json')) {
+    const reason = response.status >= 500
+      ? 'เซิร์ฟเวอร์วิเคราะห์ไม่พร้อมใช้งานชั่วคราว'
+      : 'ปลายทาง API ส่งข้อมูลกลับมาไม่ถูกต้อง';
+    throw new Error(`${operation}: ${reason} (HTTP ${response.status})`);
+  }
+
+  try {
+    return rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    throw new Error(`${operation}: เซิร์ฟเวอร์ส่ง JSON ที่อ่านไม่ได้ (HTTP ${response.status})`);
+  }
+};
+
 const getRiskLevelText = (score: number) => {
   if (score >= 80) return `สูงมาก (${score}%)`;
   if (score >= 50) return `ปานกลาง (${score}%)`;
@@ -70,10 +88,10 @@ const getPenaltyText = (section: string) => {
 };
 
 const AI_STEPS = [
-  'สกัดข้อความและคัดกรองโฆษณา (OCR-v2)',
-  'วิเคราะห์เจตนาเกินจริงและโฆษณาชวนเชื่อ (Llama-3)',
-  'เปรียบเทียบบทกฎหมายและมาตราความผิด (Reg-Matcher)',
-  'สแกน IP, ISP, และข้อมูลจดทะเบียน (Threat-v3)'
+  'สกัดข้อความจากหน้าเว็บและภาพหลักฐาน (Tesseract OCR)',
+  'วิเคราะห์ข้อความและประเมินความเสี่ยงด้วย AI จาก Backend',
+  'เปรียบเทียบสัญญาณกับบทกฎหมายและมาตราความผิด',
+  'ตรวจสอบโดเมนและข้อมูลจดทะเบียนจาก DNS/RDAP'
 ];
 
 // ความเสี่ยง circular indicator for Push Notification
@@ -258,13 +276,13 @@ function Popup() {
           evidenceText: pageSnippet || 'แจ้งจากระบบ Ad Shield'
         })
       });
-      const caseData = await res.json();
+      const caseData = await readApiJson(res, 'สร้างรายการตรวจสอบ');
       if (!res.ok) return;
 
       const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
         method: 'POST'
       });
-      const analyzeData = await analyzeRes.json();
+      const analyzeData = await readApiJson(analyzeRes, 'วิเคราะห์ด้วย AI');
       if (!analyzeRes.ok) return;
 
       setAiAnalysisResult(analyzeData);
@@ -291,6 +309,8 @@ function Popup() {
               setAiAnalysisResult({
                 aiRiskScore: currentTabLog.score,
                 aiAnalysis: currentTabLog.analysis,
+                analysisSource: currentTabLog.analysisSource,
+                aiModel: currentTabLog.aiModel,
                 url: currentTabLog.url,
                 productType: currentTabLog.productType || ProductType.FOOD,
                 matchingRules: []
@@ -408,7 +428,7 @@ function Popup() {
           evidenceText: pageSnippet || 'แจ้งจากระบบ Ad Shield'
         })
       });
-      const caseData = await res.json();
+      const caseData = await readApiJson(res, 'สร้างรายการตรวจสอบ');
       if (!res.ok) throw new Error(caseData.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
       setCreatedCaseId(caseData.id);
 
@@ -416,7 +436,7 @@ function Popup() {
       const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
         method: 'POST'
       });
-      const analyzeData = await analyzeRes.json();
+      const analyzeData = await readApiJson(analyzeRes, 'วิเคราะห์ด้วย AI');
       if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การวิเคราะห์ ระบบอัจฉริยะ ล้มเหลว');
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);
@@ -439,7 +459,7 @@ function Popup() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      const data = await res.json();
+      const data = await readApiJson(res, 'เข้าสู่ระบบ');
       if (!res.ok) throw new Error(data.message || 'รหัสผ่านไม่ถูกต้อง');
 
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -514,7 +534,7 @@ function Popup() {
           evidenceText: pageText || 'ส่งจาก Extension เจ้าหน้าที่'
         })
       });
-      const caseData = await createRes.json();
+      const caseData = await readApiJson(createRes, 'สร้างรายการตรวจสอบ');
       if (!createRes.ok) throw new Error(caseData.message || 'บันทึกสร้างเคสล้มเหลว');
       setCreatedCaseId(caseData.id);
       // ระบบอัจฉริยะ analysis
@@ -522,7 +542,7 @@ function Popup() {
         method: 'POST',
         headers: { Authorization: `Bearer ${officerToken}` }
       });
-      const analyzeData = await analyzeRes.json();
+      const analyzeData = await readApiJson(analyzeRes, 'วิเคราะห์ด้วย AI');
       if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การเรียก ระบบอัจฉริยะ วิเคราะห์ล้มเหลว');
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);
@@ -563,7 +583,7 @@ function Popup() {
           evidenceText: targetText
         })
       });
-      const caseData = await createRes.json();
+      const caseData = await readApiJson(createRes, 'สร้างรายการตรวจสอบ');
       if (!createRes.ok) throw new Error(caseData.message || 'บันทึกสร้างเคสล้มเหลว');
       setCreatedCaseId(caseData.id);
 
@@ -572,7 +592,7 @@ function Popup() {
         method: 'POST',
         headers: { Authorization: `Bearer ${officerToken}` }
       });
-      const analyzeData = await analyzeRes.json();
+      const analyzeData = await readApiJson(analyzeRes, 'วิเคราะห์ด้วย AI');
       if (!analyzeRes.ok) throw new Error(analyzeData.message || 'การเรียก ระบบอัจฉริยะ วิเคราะห์ล้มเหลว');
 
       setAiAnalysisResult(analyzeData);
@@ -955,6 +975,9 @@ function Popup() {
                         </div>
                         <div className="log-card-title">{log.title}</div>
                         <div className="log-card-url">{log.url}</div>
+                        {log.analysisSource && (
+                          <div className="log-card-analysis">แหล่งผลวิเคราะห์: {log.analysisSource}{log.aiModel ? ` (${log.aiModel})` : ''}</div>
+                        )}
                         <div className="log-card-analysis">{log.analysis}</div>
                       </div>
                     ))}
@@ -972,6 +995,12 @@ function Popup() {
             <h3 className="side-panel-title">📋 รายงานวิเคราะห์หน้าเว็บด้วย ระบบอัจฉริยะ</h3>
             <button className="btn-close-side" onClick={() => setShowDetails(false)} title="ปิดรายงาน">✕</button>
           </div>
+          {aiAnalysisResult.analysisSource && (
+            <div style={{ margin: '0 0 8px', fontSize: '0.72rem', fontWeight: 700, color: '#047857' }}>
+              แหล่งผลวิเคราะห์: {aiAnalysisResult.analysisSource}
+              {aiAnalysisResult.aiModel ? ` (${aiAnalysisResult.aiModel})` : ''}
+            </div>
+          )}
 
           <div className="risk-bar" style={{ marginTop: '4px', gap: '6px' }}>
             <span className="risk-label" style={{ fontSize: '0.78rem' }}>ระดับความเสี่ยง:</span>

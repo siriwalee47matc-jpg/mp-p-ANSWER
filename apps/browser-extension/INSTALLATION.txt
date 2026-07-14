@@ -1,10 +1,14 @@
-Sentinel ADS Extension Installation
+Sentinel ADS Extension Installation / วิธีติดตั้ง
 
-1. Extract this ZIP file to a permanent folder.
+1. Extract this ZIP. You will get a folder named sentinel-ads-extension.
+   แตกไฟล์ ZIP แล้วจะได้โฟลเดอร์ชื่อ sentinel-ads-extension
 2. Open chrome://extensions in Google Chrome or Microsoft Edge.
-3. Turn on Developer mode.
-4. Select Load unpacked.
-5. Select the extracted folder that contains manifest.json.
+   เปิด chrome://extensions
+3. Turn on Developer mode. / เปิดโหมดนักพัฒนา
+4. Select Load unpacked. / กด "โหลดส่วนขยายที่ไม่ได้แพ็ก"
+5. Select the sentinel-ads-extension folder itself, then click Select Folder.
+   เลือกโฟลเดอร์ sentinel-ads-extension แล้วกด Select Folder ทันที
+   Do not open or select the assets subfolder. / ห้ามเลือกโฟลเดอร์ assets
 
 For production one-click installation, publish this package through the Chrome Web Store
 or an approved enterprise browser policy. The extension is preconfigured to use the

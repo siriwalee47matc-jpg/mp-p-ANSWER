@@ -10,8 +10,8 @@ import { CasesService } from '../cases/cases.service';
  *  - OPENAI_API_KEY  (for OpenAI)
  *  - ANTHROPIC_API_KEY (for Anthropic Claude)
  *
- * When no API key is configured, the service falls back to the built-in mock analysis
- * in CasesService.analyzeCase() which uses keyword matching + license checks.
+ * In production, missing credentials or a provider failure returns 503. Rule-based
+ * analysis is exposed only as a clearly labelled development fallback.
  */
 @Injectable()
 export class AiService {
@@ -19,14 +19,19 @@ export class AiService {
 
   /**
    * Evaluates a case using AI analysis and returns the updated case.
-   * Runs baseline mock checks (WHOIS and license validation), then overlays real AI analysis if keys are configured.
+   * Builds baseline evidence (WHOIS, OCR, keyword and license signals), then requires
+   * a successful external AI result in production.
    * @param caseId The case identifier.
    */
   async evaluateCase(caseId: string) {
     const provider = process.env.AI_PROVIDER;
 
-    // Run baseline mock analysis first
+    // Build deterministic evidence first; this is context for the external model,
+    // not a result that production is allowed to present as real AI output.
     let analysisResult = await this.casesService.analyzeCase(caseId);
+    let aiCompleted = false;
+    let aiSource: 'GEMINI' | 'OPENAI' | 'ANTHROPIC' | null = null;
+    let aiModel: string | null = null;
 
     if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
       try {
@@ -41,7 +46,7 @@ export class AiService {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey,
           },
-          signal: AbortSignal.timeout(25000),
+          signal: AbortSignal.timeout(18000),
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
@@ -70,6 +75,9 @@ export class AiService {
                 aiRiskScore: updatedCase.aiRiskScore,
                 aiAnalysis: updatedCase.aiAnalysis,
               };
+              aiCompleted = true;
+              aiSource = 'GEMINI';
+              aiModel = modelName;
               console.log(`[AiService] Gemini analysis complete for case ${caseId}. Risk Score: ${parsed.aiRiskScore}%`);
             }
           }
@@ -86,6 +94,7 @@ export class AiService {
         const apiKey = process.env.OPENAI_API_KEY;
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
+          signal: AbortSignal.timeout(18000),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
@@ -112,6 +121,9 @@ export class AiService {
                 aiRiskScore: updatedCase.aiRiskScore,
                 aiAnalysis: updatedCase.aiAnalysis,
               };
+              aiCompleted = true;
+              aiSource = 'OPENAI';
+              aiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
               console.log(`[AiService] OpenAI analysis complete for case ${caseId}. Risk Score: ${parsed.aiRiskScore}%`);
             }
           }
@@ -128,6 +140,7 @@ export class AiService {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
+          signal: AbortSignal.timeout(18000),
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
@@ -155,6 +168,9 @@ export class AiService {
                 aiRiskScore: updatedCase.aiRiskScore,
                 aiAnalysis: updatedCase.aiAnalysis,
               };
+              aiCompleted = true;
+              aiSource = 'ANTHROPIC';
+              aiModel = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620';
               console.log(`[AiService] Anthropic analysis complete for case ${caseId}. Risk Score: ${parsed.aiRiskScore}%`);
             }
           }
@@ -167,7 +183,29 @@ export class AiService {
       }
     }
 
-    return analysisResult;
+    if (!aiCompleted) {
+      if (process.env.NODE_ENV === 'production') {
+        await this.casesService.clearAiAnalysis(
+          caseId,
+          `External AI provider did not return a valid result (provider: ${provider || 'not configured'}).`,
+        );
+        throw new ServiceUnavailableException(
+          'บริการ AI จริงไม่พร้อมใช้งานในขณะนี้ ระบบจะไม่แสดงผลวิเคราะห์จากกฎพื้นฐานแทน AI',
+        );
+      }
+
+      return {
+        ...analysisResult,
+        analysisSource: 'RULE_BASED_FALLBACK',
+        aiModel: null,
+      };
+    }
+
+    return {
+      ...analysisResult,
+      analysisSource: aiSource,
+      aiModel,
+    };
   }
 
   private buildPrompt(caseData: any): string {

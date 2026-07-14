@@ -616,7 +616,7 @@ export default function LandingPage() {
 
             {!chromeWebStoreUrl && (
               <p className="lp-download__subtitle">
-                หลังดาวน์โหลด ให้แตกไฟล์ เปิด <strong>chrome://extensions</strong> เปิดโหมดนักพัฒนา แล้วเลือก “โหลดส่วนขยายที่ไม่ได้แพ็ก”
+                หลังดาวน์โหลด ให้แตกไฟล์แล้วเลือกโฟลเดอร์ <strong>sentinel-ads-extension</strong> ในหน้า <strong>chrome://extensions</strong> (ไม่ต้องเปิดโฟลเดอร์ assets)
               </p>
             )}
 

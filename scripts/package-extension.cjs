@@ -11,6 +11,7 @@ const distDirectory = path.join(extensionDirectory, 'dist');
 const installGuide = path.join(extensionDirectory, 'INSTALLATION.txt');
 const outputDirectory = path.join(root, 'apps', 'dashboard-web', 'public', 'downloads');
 const outputFile = path.join(outputDirectory, 'sentinel-ads-extension.zip');
+const archiveRootDirectory = 'sentinel-ads-extension';
 
 if (process.env.VERCEL === '1') {
   if (!fs.existsSync(outputFile)) {
@@ -43,7 +44,9 @@ archive.on('error', (error) => {
   throw error;
 });
 archive.pipe(output);
-archive.directory(distDirectory, false);
+// Keep the extension in a single top-level directory so extracting the ZIP never
+// scatters manifest.json and its assets into the user's Downloads directory.
+archive.directory(distDirectory, archiveRootDirectory);
 archive.finalize();
 
 output.on('close', () => {

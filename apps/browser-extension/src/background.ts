@@ -28,11 +28,26 @@ const PRODUCT_PATTERNS: Array<{ productType: ProductType; keywords: string[] }> 
   { productType: 'FOOD', keywords: ['food', 'supplement', 'ชา', 'coffee', 'beverage', 'อาหาร'] },
 ];
 
+async function readApiJson(response: Response, operation: string) {
+  const contentType = response.headers.get('content-type') || '';
+  const rawBody = await response.text();
+
+  if (!contentType.toLowerCase().includes('application/json')) {
+    throw new Error(`${operation} returned non-JSON response (HTTP ${response.status})`);
+  }
+
+  try {
+    return rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    throw new Error(`${operation} returned invalid JSON (HTTP ${response.status})`);
+  }
+}
+
 async function syncBlockedDomains() {
   try {
     const res = await fetch(`${API_URL}/domains`);
     if (!res.ok) throw new Error('Failed to fetch domains');
-    const domains = await res.json();
+    const domains = await readApiJson(res, 'Domain sync');
     await chrome.storage.local.set({ blockedDomains: domains });
     console.log('Synced blocked domains:', domains.length);
   } catch (err) {
@@ -44,7 +59,7 @@ async function syncAllowlist() {
   try {
     const res = await fetch(`${API_URL}/allowlist`);
     if (!res.ok) throw new Error('Failed to fetch allowlist');
-    const allowlist = await res.json();
+    const allowlist = await readApiJson(res, 'Allowlist sync');
     await chrome.storage.local.set({ allowlistDomains: allowlist });
     console.log('Synced allowlist domains:', allowlist.length);
   } catch (err) {
@@ -56,7 +71,7 @@ async function syncRiskLevel() {
   try {
     const res = await fetch(`${API_URL}/config/risk-level`);
     if (!res.ok) throw new Error('Failed to fetch risk level');
-    const config = await res.json();
+    const config = await readApiJson(res, 'Risk-level sync');
     if (config && config.riskLevel) {
       const autoScan = config.riskLevel !== 'MANUAL';
       await chrome.storage.local.set({ 
@@ -316,13 +331,13 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     });
 
     if (!createRes.ok) throw new Error('Failed to create background case');
-    const caseData = await createRes.json();
+    const caseData = await readApiJson(createRes, 'Case creation');
 
     const analyzeRes = await fetch(`${API_URL}/cases/${caseData.id}/analyze`, {
       method: 'POST',
     });
     if (!analyzeRes.ok) throw new Error('AI analysis failed');
-    const aiResult = await analyzeRes.json();
+    const aiResult = await readApiJson(analyzeRes, 'AI analysis');
     const score = aiResult.aiRiskScore || 0;
     const blockDecision = buildAutoBlockDecision(aiResult, riskLevel, allowlistEntry);
 
@@ -337,6 +352,8 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       level: riskLevel,
       productType,
       analysis: aiResult.aiAnalysis,
+      analysisSource: aiResult.analysisSource,
+      aiModel: aiResult.aiModel,
       recommendedAction: blockDecision.recommendedAction,
       autoBlockEligible: blockDecision.eligible,
       legalSignals: blockDecision.legalSignals,
@@ -392,7 +409,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
           throw new Error(`Automatic block request was rejected (${blockResponse.status})`);
         }
 
-        const blockResult = await blockResponse.json();
+        const blockResult = await readApiJson(blockResponse, 'Automatic block');
         if (!blockResult.success) {
           throw new Error(blockResult.reason || 'Automatic block request was rejected');
         }

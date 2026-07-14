@@ -390,7 +390,7 @@ export class CasesService {
     const riskTier = aiRiskScore >= 80 ? 'HIGH' : aiRiskScore >= 50 ? 'MEDIUM' : 'LOW';
 
     const aiAnalysis = [
-      `AI risk assessment: ${riskTier} (${aiRiskScore}%)`,
+      `Rule-based risk assessment: ${riskTier} (${aiRiskScore}%)`,
       `Detected claims: ${claimSignals.length > 0 ? claimSignals.join(', ') : 'No primary claim cluster matched'}`,
       `Product classification: ${classification.productType} (${Math.round(classification.confidence * 100)}% confidence)`,
       `License verification: ${
@@ -436,8 +436,8 @@ export class CasesService {
     await this.prisma.auditLog.create({
       data: {
         caseId: id,
-        action: 'AI_ANALYSIS',
-        details: `AI analysis completed with real OSINT for ${item.domain}. Product ${classification.productType}. License ${licenseStatus}. Risk ${aiRiskScore}%`,
+        action: 'RULE_BASED_EVIDENCE',
+        details: `Rule-based evidence prepared with real OSINT for ${item.domain}. Product ${classification.productType}. License ${licenseStatus}. Preliminary risk ${aiRiskScore}%`,
       },
     });
 
@@ -511,6 +511,26 @@ export class CasesService {
         caseId: id,
         action: 'AI_RE_ANALYSIS',
         details: `AI analysis updated. Risk ${aiRiskScore}%`,
+      },
+    });
+
+    return updated;
+  }
+
+  async clearAiAnalysis(id: string, reason: string) {
+    const updated = await this.prisma.case.update({
+      where: { id },
+      data: {
+        aiRiskScore: null,
+        aiAnalysis: null,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        caseId: id,
+        action: 'AI_UNAVAILABLE',
+        details: reason,
       },
     });
 
