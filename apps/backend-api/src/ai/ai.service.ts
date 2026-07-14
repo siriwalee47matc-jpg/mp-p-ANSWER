@@ -37,8 +37,10 @@ export class AiService {
     if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
       const prompt = this.buildPrompt(analysisResult);
       const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
-      const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash';
-      const models = primaryModel === fallbackModel ? [primaryModel] : [primaryModel, fallbackModel];
+      const fallbackModel = process.env.GEMINI_FALLBACK_MODEL?.trim();
+      const models = fallbackModel && primaryModel !== fallbackModel
+        ? [primaryModel, fallbackModel]
+        : [primaryModel];
 
       for (const [index, modelName] of models.entries()) {
         try {
@@ -46,7 +48,7 @@ export class AiService {
             prompt,
             process.env.GEMINI_API_KEY.trim(),
             modelName,
-            index === 0 ? 15000 : 20000,
+            index === 0 ? 60000 : 30000,
           );
           const updatedCase = await this.casesService.updateAiAnalysis(
             caseId,
@@ -67,7 +69,7 @@ export class AiService {
           const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
           aiFailureReason = timedOut
             ? `${modelName} request timed out`
-            : `${modelName} request failed`;
+            : `${modelName} request failed${error?.message ? ` (${error.message})` : ''}`;
           console.error(`[AiService] ${aiFailureReason}:`, error);
         }
       }
@@ -213,7 +215,7 @@ export class AiService {
             thinkingConfig: isGemini3
               ? { thinkingLevel: 'minimal' }
               : { thinkingBudget: 0 },
-            maxOutputTokens: 1200,
+            maxOutputTokens: 800,
             responseMimeType: 'application/json',
             responseSchema: {
               type: 'OBJECT',
