@@ -45,6 +45,9 @@ const CLAIM_PATTERNS: Array<{ label: string; patterns: RegExp[] }> = [
 
 @Injectable()
 export class ScanIntelligenceService {
+  private ocrWorkerPromise?: ReturnType<typeof createWorker>;
+  private ocrQueue: Promise<void> = Promise.resolve();
+
   async analyzeInput(input: {
     title?: string;
     url?: string;
@@ -107,18 +110,20 @@ export class ScanIntelligenceService {
       return '';
     }
 
-    try {
+    const recognition = this.ocrQueue.then(async () => {
       const path = require('path');
-      const worker = await createWorker('eng+tha', 1, {
+      this.ocrWorkerPromise ??= createWorker('eng+tha', 1, {
         langPath: path.resolve(__dirname, '..', '..'),
         gzip: false,
       });
-      try {
-        const result = await worker.recognize(evidenceImage);
-        return result.data.text?.trim() || '';
-      } finally {
-        await worker.terminate();
-      }
+      const worker = await this.ocrWorkerPromise;
+      const result = await worker.recognize(evidenceImage);
+      return result.data.text?.trim() || '';
+    });
+    this.ocrQueue = recognition.then(() => undefined, () => undefined);
+
+    try {
+      return await recognition;
     } catch (err) {
       console.error('[ScanIntelligenceService] Tesseract OCR failed:', err);
       return '';

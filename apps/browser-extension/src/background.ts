@@ -1,14 +1,8 @@
 // Background Service Worker for Sentinel ADS Shield
 import { API_URL } from './config';
 import { analyzeCaseWithRetry } from './analysis-api';
+import { AllowlistEntry, analyzeLocalPageSignals, buildScanDecision } from './scan-policy';
 export {};
-
-type AllowlistEntry = {
-  domain: string;
-  listType: 'TRUSTED_OFFICIAL' | 'MARKETPLACE' | 'PLATFORM';
-  action: 'SKIP_SCAN' | 'REPORT_ONLY' | 'NO_AUTO_BLOCK';
-  reason: string;
-};
 
 type ProductType =
   | 'FOOD'
@@ -44,7 +38,10 @@ async function readApiJson(response: Response, operation: string) {
   }
 }
 
+let apiReadyAt = 0;
+
 async function ensureApiReady() {
+  if (Date.now() - apiReadyAt < 4 * 60 * 1000) return;
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -54,7 +51,10 @@ async function ensureApiReady() {
         cache: 'no-store',
       });
       await readApiJson(response, 'API readiness check');
-      if (response.ok) return;
+      if (response.ok) {
+        apiReadyAt = Date.now();
+        return;
+      }
     } catch (error) {
       lastError = error;
     }
@@ -91,6 +91,8 @@ async function syncAllowlist() {
 
 async function syncRiskLevel() {
   try {
+    const localConfig = await chrome.storage.local.get(['riskLevelOverride']);
+    if (localConfig.riskLevelOverride === true) return;
     const res = await fetch(`${API_URL}/config/risk-level`);
     if (!res.ok) throw new Error('Failed to fetch risk level');
     const config = await readApiJson(res, 'Risk-level sync');
@@ -135,33 +137,6 @@ function classifyProductType(text: string): ProductType {
   return best;
 }
 
-function buildAutoBlockDecision(aiResult: any, riskLevel: string, allowlistEntry: AllowlistEntry | null) {
-  const score = aiResult.aiRiskScore || 0;
-  const decision = aiResult.enforcementDecision || {};
-  const legalSignals = Array.isArray(aiResult.matchingRules) ? aiResult.matchingRules.length : 0;
-  const hasOfficialLicenseReference = aiResult.licenseStatus === 'CHECK_OFFICIAL_SOURCE';
-  const hasRealOsint = aiResult.whoisInfo?.sourceType === 'REAL_OSINT';
-  const allowlistAction = allowlistEntry?.action || null;
-  const reportOnly = allowlistAction === 'REPORT_ONLY' || allowlistAction === 'NO_AUTO_BLOCK';
-  const skipScan = allowlistAction === 'SKIP_SCAN';
-  const eligible =
-    !skipScan &&
-    !reportOnly &&
-    riskLevel === 'AUTO_BLOCK' &&
-    score >= 85 &&
-    !hasOfficialLicenseReference &&
-    hasRealOsint &&
-    legalSignals >= 1 &&
-    decision.autoBlockEligible === true;
-
-  return {
-    eligible,
-    score,
-    legalSignals,
-    recommendedAction: skipScan ? 'SKIP_SCAN' : reportOnly ? 'REPORT_ONLY' : decision.recommendedAction || 'REVIEW_REQUIRED',
-  };
-}
-
 async function recordExtensionInstall() {
   const storage = await chrome.storage.local.get(['installationTelemetryId', 'installationTelemetryReported']);
   const installationId = storage.installationTelemetryId ||
@@ -191,19 +166,28 @@ async function recordExtensionInstall() {
   }
 }
 
-chrome.runtime.onInstalled.addListener((details) => {
-  chrome.storage.local.set({
-    extensionMode: 'CONSUMER',
-    autoScan: true,
-    riskLevel: 'AUTO_DETECT',
-    riskLogs: [],
-    scanHistory: {},
-    allowlistDomains: [],
-  }, () => {
-    syncBlockedDomains();
-    syncAllowlist();
-    syncRiskLevel();
+chrome.runtime.onInstalled.addListener(async (details) => {
+  const current = await chrome.storage.local.get([
+    'extensionMode',
+    'autoScan',
+    'riskLevel',
+    'riskLevelOverride',
+    'riskLogs',
+    'scanHistory',
+    'localProtection',
+    'allowlistDomains',
+  ]);
+  await chrome.storage.local.set({
+    extensionMode: current.extensionMode ?? 'CONSUMER',
+    autoScan: current.autoScan ?? true,
+    riskLevel: current.riskLevel ?? 'AUTO_DETECT',
+    riskLevelOverride: current.riskLevelOverride ?? false,
+    riskLogs: current.riskLogs ?? [],
+    scanHistory: current.scanHistory ?? {},
+    localProtection: current.localProtection ?? {},
+    allowlistDomains: current.allowlistDomains ?? [],
   });
+  await Promise.all([syncBlockedDomains(), syncAllowlist(), syncRiskLevel()]);
 
   if (details.reason === 'install') {
     void recordExtensionInstall();
@@ -246,20 +230,26 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
 async function checkAndBlockTab(tabId: number, urlStr: string) {
   try {
     const domain = normalizeDomain(urlStr);
-    const data = await chrome.storage.local.get(['blockedDomains', 'allowlistDomains']);
+    const data = await chrome.storage.local.get(['blockedDomains', 'allowlistDomains', 'localProtection', 'riskLevel']);
     const allowlistEntry = matchAllowlist(domain, data.allowlistDomains || []);
     if (allowlistEntry?.action === 'SKIP_SCAN') {
       return;
     }
 
     const list = data.blockedDomains || [];
-    const blockedInfo = list.find((d: any) => d.domain === domain);
-    if (blockedInfo) {
+    const blockedInfo = list.find((d: any) => domain === d.domain || domain.endsWith(`.${d.domain}`));
+    const protection = data.localProtection?.[domain];
+    const activeProtection =
+      data.riskLevel === 'AUTO_BLOCK' && protection && Number(protection.expiresAt) > Date.now()
+        ? protection
+        : null;
+    const blockReason = blockedInfo?.reason || activeProtection?.reason;
+    if (blockReason) {
       setTimeout(() => {
         chrome.tabs
           .sendMessage(tabId, {
             action: 'BLOCK_SCREEN',
-            reason: blockedInfo.reason,
+            reason: blockReason,
           })
           .catch((err) => {
             console.log('Failed to notify tab, likely not injected yet:', err);
@@ -271,11 +261,16 @@ async function checkAndBlockTab(tabId: number, urlStr: string) {
   }
 }
 
-async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
-  try {
-    if (!activeTab || !activeTab.id || !activeTab.url) return;
-    if (!shouldScanUrl(activeTab.url)) return;
+const inFlightScans = new Map<number, string>();
 
+async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
+  if (!activeTab?.id || !activeTab.url || !shouldScanUrl(activeTab.url)) return;
+  const tabId = activeTab.id;
+  const scanKey = `${tabId}:${activeTab.url}`;
+  if (inFlightScans.has(tabId)) return;
+  inFlightScans.set(tabId, scanKey);
+
+  try {
     const hostname = normalizeDomain(activeTab.url);
     const domainData = await chrome.storage.local.get(['blockedDomains', 'allowlistDomains', 'scanHistory', 'riskLevel']);
     const authData = await chrome.storage.local.get(['token', 'userRole']);
@@ -289,15 +284,14 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     if (riskLevel === 'MANUAL') return;
 
     const scanHistory = domainData.scanHistory || {};
-    const historyKey = `${hostname}:${riskLevel}`;
+    const pageUrl = new URL(activeTab.url);
+    const historyKey = `${hostname}:${pageUrl.pathname}${pageUrl.search}:${riskLevel}`;
     const now = Date.now();
     
     // Cache check: only scan if not scanned in last 1 minute to prevent rapid duplicate requests while browsing
     // Bypass cache check for local testing URLs (localhost, 127.0.0.1, or file://) to make development testing seamless
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || activeTab.url.startsWith('file://') || !hostname;
-    if (!isLocal && (now - (scanHistory[historyKey] || 0) < 1 * 60 * 1000)) return;
-
-    await ensureApiReady();
+    if (!isLocal && (now - (scanHistory[historyKey] || 0) < 3 * 60 * 1000)) return;
 
     let pageSignals: any = null;
     try {
@@ -305,17 +299,30 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
         target: { tabId: activeTab.id },
         func: () => {
           const bodyText = document.body.innerText || '';
+          const mainText =
+            document.querySelector('main, article, [role="main"]')?.textContent || bodyText;
+          const description =
+            document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+          const headings = Array.from(document.querySelectorAll('h1, h2, h3'))
+            .slice(0, 20)
+            .map((node) => (node.textContent || '').trim())
+            .filter(Boolean)
+            .join(' | ');
           const fda = bodyText.match(/\d{2}-\d-\d{5}-\d-\d{4}/)?.[0] || '';
           const imageSignals = Array.from(document.images)
-            .slice(0, 10)
+            .slice(0, 20)
             .map((img) => [img.alt || '', img.title || '', img.getAttribute('aria-label') || '', img.src.split('/').pop() || ''].join(' '))
             .join(' | ');
           const figcaptions = Array.from(document.querySelectorAll('figcaption, [data-testid*="caption"], .caption'))
-            .slice(0, 10)
+            .slice(0, 20)
             .map((node) => (node.textContent || '').trim())
             .join(' | ');
           return {
-            text: bodyText.substring(0, 2500),
+            text: [document.title, description, headings, mainText]
+              .filter(Boolean)
+              .join('\n')
+              .replace(/\s+/g, ' ')
+              .substring(0, 6000),
             fda,
             imageSignalsText: `${imageSignals} | ${figcaptions}`.trim(),
           };
@@ -329,14 +336,29 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
 
     if (!pageSignals?.text?.trim()) return;
 
-    let evidenceImage: string | undefined;
-    try {
-      evidenceImage = await chrome.tabs.captureVisibleTab(chrome.windows.WINDOW_ID_CURRENT, { format: 'png' });
-    } catch (err) {
-      console.log('Could not capture visible tab:', err);
-    }
+    const currentTab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!currentTab || currentTab.url !== activeTab.url) return;
 
     const combinedText = `${activeTab.title || ''}\n${activeTab.url}\n${pageSignals.text}\n${pageSignals.imageSignalsText || ''}`;
+    const localSignals = analyzeLocalPageSignals(combinedText);
+    if (!localSignals.shouldAnalyze) {
+      await chrome.storage.local.set({
+        scanHistory: { ...scanHistory, [historyKey]: now },
+      });
+      return;
+    }
+
+    const [, evidenceImage] = await Promise.all([
+      ensureApiReady(),
+      currentTab.active
+        ? chrome.tabs
+            .captureVisibleTab(chrome.windows.WINDOW_ID_CURRENT, { format: 'jpeg', quality: 55 })
+            .catch((err) => {
+              console.log('Could not capture visible tab:', err);
+              return undefined;
+            })
+        : Promise.resolve(undefined),
+    ]);
     const productType = classifyProductType(combinedText);
 
     const createRes = await fetch(`${API_URL}/cases`, {
@@ -368,7 +390,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       },
     });
     const score = aiResult.aiRiskScore || 0;
-    const blockDecision = buildAutoBlockDecision(aiResult, riskLevel, allowlistEntry);
+    const blockDecision = buildScanDecision(aiResult, riskLevel, allowlistEntry);
 
     const logData = await chrome.storage.local.get(['riskLogs']);
     const logs = logData.riskLogs || [];
@@ -384,9 +406,12 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       analysisSource: aiResult.analysisSource,
       aiModel: aiResult.aiModel,
       recommendedAction: blockDecision.recommendedAction,
-      autoBlockEligible: blockDecision.eligible,
+      autoBlockEligible: blockDecision.serverBlockEligible,
+      protectiveBlockEligible: blockDecision.protectiveBlockEligible,
       legalSignals: blockDecision.legalSignals,
+      localSignals: localSignals.claimSignals,
       allowlist: allowlistEntry?.action || null,
+      scanDurationMs: Date.now() - now,
     };
 
     await chrome.storage.local.set({
@@ -397,7 +422,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       },
     });
 
-    if (score >= 50) {
+    if (blockDecision.notify) {
       chrome.notifications.create(caseData.id, {
         type: 'basic',
         iconUrl: 'logo.png',
@@ -423,7 +448,30 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       Boolean(authData.token) &&
       (authData.userRole === 'ADMIN' || authData.userRole === 'REVIEWER');
 
-    if (blockDecision.eligible && canAuthorizeBlock) {
+    if (blockDecision.protectiveBlockEligible) {
+      const reason = `Sentinel ADS ตรวจพบความเสี่ยงสูงจาก AI (${score}%) และพบหลักฐานที่ตรงกับกฎกฎหมาย ระบบจึงแสดงหน้าป้องกันชั่วคราว`;
+      const protectionData = await chrome.storage.local.get(['localProtection']);
+      await chrome.storage.local.set({
+        localProtection: {
+          ...(protectionData.localProtection || {}),
+          [hostname]: { score, reason, caseId: caseData.id, expiresAt: Date.now() + 12 * 60 * 60 * 1000 },
+        },
+      });
+      chrome.tabs.sendMessage(tabId, { action: 'BLOCK_SCREEN', reason }).catch((err) => {
+        console.log('Failed to show protective block screen:', err);
+      });
+    } else if (blockDecision.notify) {
+      chrome.tabs
+        .sendMessage(tabId, {
+          action: 'SCAN_RESULT',
+          score,
+          analysis: aiResult.aiAnalysis,
+          recommendedAction: blockDecision.recommendedAction,
+        })
+        .catch((err) => console.log('Failed to show in-page AI alert:', err));
+    }
+
+    if (blockDecision.serverBlockEligible && canAuthorizeBlock) {
       try {
         const blockResponse = await fetch(`${API_URL}/blocks`, {
           method: 'POST',
@@ -458,6 +506,14 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     }
   } catch (err) {
     console.error('Background auto-scan error:', err);
+  } finally {
+    if (activeTab.id && inFlightScans.get(activeTab.id) === scanKey) {
+      inFlightScans.delete(activeTab.id);
+    }
+    const latestTab = activeTab.id ? await chrome.tabs.get(activeTab.id).catch(() => null) : null;
+    if (latestTab?.url && latestTab.url !== activeTab.url && shouldScanUrl(latestTab.url)) {
+      void runAutoScanForTab(latestTab);
+    }
   }
 }
 
@@ -469,10 +525,19 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'CHECK_DOMAIN') {
-    chrome.storage.local.get(['blockedDomains']).then((data) => {
+    chrome.storage.local.get(['blockedDomains', 'localProtection', 'riskLevel']).then((data) => {
       const list = data.blockedDomains || [];
-      const isBlocked = list.some((d: any) => d.domain === request.domain.toLowerCase());
-      sendResponse({ isBlocked });
+      const domain = request.domain.toLowerCase();
+      const blockedInfo = list.find((d: any) => domain === d.domain || domain.endsWith(`.${d.domain}`));
+      const protection = data.localProtection?.[domain];
+      const activeProtection =
+        data.riskLevel === 'AUTO_BLOCK' && protection && Number(protection.expiresAt) > Date.now()
+          ? protection
+          : null;
+      sendResponse({
+        isBlocked: Boolean(blockedInfo || activeProtection),
+        reason: blockedInfo?.reason || activeProtection?.reason,
+      });
     });
     return true;
   }

@@ -1,6 +1,15 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { CasesService } from '../cases/cases.service';
 
+type ModelAssessment = {
+  aiRiskScore: number;
+  aiAnalysis: string;
+  confidence: number;
+  evidenceQuotes: string[];
+  violationCategories: string[];
+  recommendedAction: 'MONITOR' | 'REVIEW_REQUIRED' | 'AUTO_BLOCK';
+};
+
 /**
  * Service responsible for AI related operations.
  *
@@ -28,14 +37,15 @@ export class AiService {
 
     // Build deterministic evidence first; this is context for the external model,
     // not a result that production is allowed to present as real AI output.
-    let analysisResult = await this.casesService.analyzeCase(caseId);
+    let analysisResult: any = await this.casesService.analyzeCase(caseId);
+    const baselineRiskScore = Number(analysisResult.aiRiskScore) || 0;
     let aiCompleted = false;
     let aiSource: 'GEMINI' | 'OPENAI' | 'ANTHROPIC' | null = null;
     let aiModel: string | null = null;
     let aiFailureReason = provider ? `${provider} is not configured` : 'AI provider is not configured';
 
     if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
-      const prompt = this.buildPrompt(analysisResult);
+      const prompt = this.buildEvidencePrompt(analysisResult);
       const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
       const fallbackModel = process.env.GEMINI_FALLBACK_MODEL?.trim();
       const models = fallbackModel && primaryModel !== fallbackModel
@@ -50,15 +60,21 @@ export class AiService {
             modelName,
             index === 0 ? 60000 : 30000,
           );
+          const calibrated = this.calibrateAssessment(parsed, analysisResult, baselineRiskScore);
           const updatedCase = await this.casesService.updateAiAnalysis(
             caseId,
-            parsed.aiRiskScore,
-            parsed.aiAnalysis,
+            calibrated.aiRiskScore,
+            calibrated.aiAnalysis,
           );
           analysisResult = {
             ...analysisResult,
             aiRiskScore: updatedCase.aiRiskScore,
             aiAnalysis: updatedCase.aiAnalysis,
+            modelAssessment: calibrated,
+            enforcementDecision: this.rebuildEnforcementDecision(
+              analysisResult.enforcementDecision,
+              calibrated.aiRiskScore,
+            ),
           };
           aiCompleted = true;
           aiSource = 'GEMINI';
@@ -75,7 +91,7 @@ export class AiService {
       }
     } else if (provider === 'openai' && process.env.OPENAI_API_KEY) {
       try {
-        const prompt = this.buildPrompt(analysisResult);
+        const prompt = this.buildEvidencePrompt(analysisResult);
         const apiKey = process.env.OPENAI_API_KEY;
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -98,19 +114,23 @@ export class AiService {
           const result = await response.json();
           const text = result?.choices?.[0]?.message?.content;
           if (text) {
-            const parsed = JSON.parse(text.trim());
-            if (typeof parsed.aiRiskScore === 'number' && parsed.aiAnalysis) {
-              const updatedCase = await this.casesService.updateAiAnalysis(caseId, parsed.aiRiskScore, parsed.aiAnalysis);
-              analysisResult = {
-                ...analysisResult,
-                aiRiskScore: updatedCase.aiRiskScore,
-                aiAnalysis: updatedCase.aiAnalysis,
-              };
-              aiCompleted = true;
-              aiSource = 'OPENAI';
-              aiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-              console.log(`[AiService] OpenAI analysis complete for case ${caseId}. Risk Score: ${parsed.aiRiskScore}%`);
-            }
+            const parsed = this.parseModelAssessment(JSON.parse(text.trim()));
+            const calibrated = this.calibrateAssessment(parsed, analysisResult, baselineRiskScore);
+            const updatedCase = await this.casesService.updateAiAnalysis(caseId, calibrated.aiRiskScore, calibrated.aiAnalysis);
+            analysisResult = {
+              ...analysisResult,
+              aiRiskScore: updatedCase.aiRiskScore,
+              aiAnalysis: updatedCase.aiAnalysis,
+              modelAssessment: calibrated,
+              enforcementDecision: this.rebuildEnforcementDecision(
+                analysisResult.enforcementDecision,
+                calibrated.aiRiskScore,
+              ),
+            };
+            aiCompleted = true;
+            aiSource = 'OPENAI';
+            aiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+            console.log(`[AiService] OpenAI analysis complete for case ${caseId}. Risk Score: ${calibrated.aiRiskScore}%`);
           }
         } else {
           const errText = await response.text();
@@ -121,7 +141,7 @@ export class AiService {
       }
     } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
       try {
-        const prompt = this.buildPrompt(analysisResult);
+        const prompt = this.buildEvidencePrompt(analysisResult);
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -145,19 +165,23 @@ export class AiService {
           const result = await response.json();
           const text = result?.content?.[0]?.text;
           if (text) {
-            const parsed = JSON.parse(text.trim());
-            if (typeof parsed.aiRiskScore === 'number' && parsed.aiAnalysis) {
-              const updatedCase = await this.casesService.updateAiAnalysis(caseId, parsed.aiRiskScore, parsed.aiAnalysis);
-              analysisResult = {
-                ...analysisResult,
-                aiRiskScore: updatedCase.aiRiskScore,
-                aiAnalysis: updatedCase.aiAnalysis,
-              };
-              aiCompleted = true;
-              aiSource = 'ANTHROPIC';
-              aiModel = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620';
-              console.log(`[AiService] Anthropic analysis complete for case ${caseId}. Risk Score: ${parsed.aiRiskScore}%`);
-            }
+            const parsed = this.parseModelAssessment(JSON.parse(text.trim()));
+            const calibrated = this.calibrateAssessment(parsed, analysisResult, baselineRiskScore);
+            const updatedCase = await this.casesService.updateAiAnalysis(caseId, calibrated.aiRiskScore, calibrated.aiAnalysis);
+            analysisResult = {
+              ...analysisResult,
+              aiRiskScore: updatedCase.aiRiskScore,
+              aiAnalysis: updatedCase.aiAnalysis,
+              modelAssessment: calibrated,
+              enforcementDecision: this.rebuildEnforcementDecision(
+                analysisResult.enforcementDecision,
+                calibrated.aiRiskScore,
+              ),
+            };
+            aiCompleted = true;
+            aiSource = 'ANTHROPIC';
+            aiModel = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620';
+            console.log(`[AiService] Anthropic analysis complete for case ${caseId}. Risk Score: ${calibrated.aiRiskScore}%`);
           }
         } else {
           const errText = await response.text();
@@ -198,7 +222,7 @@ export class AiService {
     apiKey: string,
     modelName: string,
     timeoutMs: number,
-  ): Promise<{ aiRiskScore: number; aiAnalysis: string }> {
+  ): Promise<ModelAssessment> {
     const isGemini3 = /^gemini-3(?:\.|-)/.test(modelName);
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
@@ -212,18 +236,41 @@ export class AiService {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
+            temperature: 0.1,
             thinkingConfig: isGemini3
               ? { thinkingLevel: 'minimal' }
               : { thinkingBudget: 0 },
-            maxOutputTokens: 800,
+            maxOutputTokens: 1000,
             responseMimeType: 'application/json',
             responseSchema: {
               type: 'OBJECT',
               properties: {
                 aiRiskScore: { type: 'NUMBER', description: 'Risk score from 0.0 to 100.0' },
                 aiAnalysis: { type: 'STRING', description: 'Detailed analysis in Thai' },
+                confidence: { type: 'NUMBER', description: 'Confidence from 0.0 to 1.0' },
+                evidenceQuotes: {
+                  type: 'ARRAY',
+                  description: 'Up to 5 short exact quotes copied from the supplied evidence',
+                  items: { type: 'STRING' },
+                },
+                violationCategories: {
+                  type: 'ARRAY',
+                  description: 'Detected violation categories supported by evidence',
+                  items: { type: 'STRING' },
+                },
+                recommendedAction: {
+                  type: 'STRING',
+                  enum: ['MONITOR', 'REVIEW_REQUIRED', 'AUTO_BLOCK'],
+                },
               },
-              required: ['aiRiskScore', 'aiAnalysis'],
+              required: [
+                'aiRiskScore',
+                'aiAnalysis',
+                'confidence',
+                'evidenceQuotes',
+                'violationCategories',
+                'recommendedAction',
+              ],
             },
           },
         }),
@@ -240,12 +287,134 @@ export class AiService {
       throw new Error('Gemini returned an empty response');
     }
 
-    const parsed = JSON.parse(text.trim());
-    if (typeof parsed.aiRiskScore !== 'number' || typeof parsed.aiAnalysis !== 'string') {
+    return this.parseModelAssessment(JSON.parse(text.trim()));
+  }
+
+  private parseModelAssessment(parsed: any): ModelAssessment {
+    if (
+      typeof parsed.aiRiskScore !== 'number' ||
+      typeof parsed.aiAnalysis !== 'string' ||
+      typeof parsed.confidence !== 'number' ||
+      !Array.isArray(parsed.evidenceQuotes) ||
+      !Array.isArray(parsed.violationCategories) ||
+      !['MONITOR', 'REVIEW_REQUIRED', 'AUTO_BLOCK'].includes(parsed.recommendedAction)
+    ) {
       throw new Error('Gemini returned an invalid analysis schema');
     }
 
-    return parsed;
+    return {
+      aiRiskScore: Math.max(0, Math.min(100, parsed.aiRiskScore)),
+      aiAnalysis: parsed.aiAnalysis,
+      confidence: Math.max(0, Math.min(1, parsed.confidence)),
+      evidenceQuotes: parsed.evidenceQuotes.filter((quote: unknown) => typeof quote === 'string').slice(0, 5),
+      violationCategories: parsed.violationCategories
+        .filter((category: unknown) => typeof category === 'string')
+        .slice(0, 8),
+      recommendedAction: parsed.recommendedAction,
+    };
+  }
+
+  private calibrateAssessment(
+    assessment: ModelAssessment,
+    caseData: any,
+    baselineRiskScore: number,
+  ): ModelAssessment {
+    const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
+    const evidence = normalize(`${caseData.title || ''} ${caseData.evidenceText || ''}`);
+    const verifiedQuotes = assessment.evidenceQuotes.filter((quote) => {
+      const normalizedQuote = normalize(quote);
+      return normalizedQuote.length >= 4 && evidence.includes(normalizedQuote);
+    });
+    const hasVerifiedEvidence = verifiedQuotes.length > 0;
+    const modelWeight = hasVerifiedEvidence ? 0.68 : 0.42;
+    let calibratedScore = Math.round(
+      assessment.aiRiskScore * modelWeight + baselineRiskScore * (1 - modelWeight),
+    );
+
+    if (!hasVerifiedEvidence) calibratedScore = Math.min(calibratedScore, 79);
+    if (assessment.confidence < 0.55) calibratedScore = Math.min(calibratedScore, 69);
+    calibratedScore = Math.max(0, Math.min(100, calibratedScore));
+
+    const verificationSummary = hasVerifiedEvidence
+      ? `ยืนยันข้อความหลักฐานตรงกับหน้าเว็บ ${verifiedQuotes.length} จุด`
+      : 'ไม่พบข้อความอ้างอิงที่ตรงกับหลักฐาน จึงจำกัดระดับความเสี่ยงไว้เพื่อป้องกันผลบวกลวง';
+
+    return {
+      ...assessment,
+      aiRiskScore: calibratedScore,
+      evidenceQuotes: verifiedQuotes,
+      recommendedAction:
+        calibratedScore >= 85 && hasVerifiedEvidence && assessment.confidence >= 0.7
+          ? 'AUTO_BLOCK'
+          : calibratedScore >= 50
+            ? 'REVIEW_REQUIRED'
+            : 'MONITOR',
+      aiAnalysis: `${assessment.aiAnalysis}\n\nการตรวจสอบความน่าเชื่อถือ: ${verificationSummary} (AI confidence ${Math.round(assessment.confidence * 100)}%, rule baseline ${Math.round(baselineRiskScore)}%)`,
+    };
+  }
+
+  private rebuildEnforcementDecision(decision: any, finalScore: number) {
+    const reasons = Array.isArray(decision?.reasons) ? decision.reasons : [];
+    const valueFor = (prefix: string) =>
+      reasons.find((reason: string) => reason.startsWith(`${prefix}:`))?.split(':').slice(1).join(':');
+    const legalSignals = Number(valueFor('legal_signals') || 0);
+    const keywordSignals = Number(valueFor('keyword_signals') || 0);
+    const hasRealOsint = valueFor('osint') === 'REAL';
+    const licenseStatus = valueFor('license_status');
+    const reportOnly = decision?.recommendedAction === 'REPORT_ONLY';
+    const autoBlockEligible =
+      !reportOnly &&
+      finalScore >= 85 &&
+      legalSignals >= 1 &&
+      keywordSignals >= 1 &&
+      hasRealOsint &&
+      licenseStatus !== 'CHECK_OFFICIAL_SOURCE';
+
+    return {
+      ...decision,
+      recommendedAction: reportOnly
+        ? 'REPORT_ONLY'
+        : autoBlockEligible
+          ? 'AUTO_BLOCK'
+          : finalScore >= 50 || legalSignals >= 1
+            ? 'REVIEW_REQUIRED'
+            : 'MONITOR',
+      autoBlockEligible,
+      confidence: autoBlockEligible ? 'HIGH' : finalScore >= 50 ? 'MEDIUM' : 'LOW',
+      reasons: [...reasons.filter((reason: string) => !reason.startsWith('risk_score:')), `risk_score:${finalScore}`],
+    };
+  }
+
+  private buildEvidencePrompt(caseData: any): string {
+    const evidencePackage = {
+      title: caseData.title || '',
+      url: caseData.url || '',
+      domain: caseData.domain || '',
+      productType: caseData.productType || '',
+      evidenceText: caseData.evidenceText || '',
+      productLicenseNumber: caseData.productLicenseNumber || null,
+      licenseStatus: caseData.licenseStatus || 'NOT_FOUND',
+      claimSignals: caseData.claimSignals || [],
+      matchingRules: caseData.matchingRules || [],
+      deterministicRiskScore: Number(caseData.aiRiskScore) || 0,
+      osintSourceType: caseData.whoisInfo?.sourceType || null,
+    };
+
+    return `You are a cautious Thai health-advertising risk analyst. Analyze only the supplied evidence package.
+
+Accuracy and safety rules:
+- Separate an advertiser's own claim from news reporting, criticism, warnings, menus, navigation, and quoted third-party text. News reporting about an illegal product is not itself an illegal advertisement.
+- Never invent a claim, product, registration status, legal provision, or source. Absence of a license number is not proof of illegality.
+- Every material finding must be supported by an exact short quote copied character-for-character from title or evidenceText. Put those quotes in evidenceQuotes. If no exact supporting quote exists, return an empty evidenceQuotes array, keep confidence low, and do not recommend AUTO_BLOCK.
+- Use AUTO_BLOCK only for an explicit high-harm health-product advertising claim with direct quoted evidence and high confidence. Ambiguous context must be REVIEW_REQUIRED. Benign or irrelevant content must be MONITOR.
+- confidence is a number from 0 to 1. aiRiskScore is 0 to 100.
+- Write aiAnalysis in clear Thai and explicitly state the evidence, uncertainty, and recommended next step. Do not present legal conclusions as final adjudication.
+- violationCategories must contain only categories supported by exact evidence, such as disease-cure, rapid-weight-loss, absolute-safety, false-authority, or misleading-health-claim.
+
+Return the structured fields required by the response schema and no additional prose.
+
+EVIDENCE_PACKAGE:
+${JSON.stringify(evidencePackage)}`;
   }
 
   private buildPrompt(caseData: any): string {

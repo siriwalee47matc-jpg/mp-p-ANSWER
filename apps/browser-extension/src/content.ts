@@ -1,23 +1,6 @@
-export {};
+import { analyzeLocalPageSignals } from './scan-policy';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
-
-const EXAGGERATED_PHRASES = [
-  'ลด 10 กิโลใน 3 วัน',
-  'ลด 10 กิโล ภายใน 3 วัน',
-  'คุมหิว ลดน้ำหนักสูตรเร่งด่วน',
-  'รักษาโรคมะเร็งหายขาด',
-  'มะเร็งหายขาดใน 1 เดือน',
-  'รักษามะเร็งหายขาด',
-  'สูตรรักษาโรคมะเร็ง',
-  'ขาวใสภายใน 2 วัน',
-  'ขาวใสเร่งด่วนใน 2 วัน',
-  'ยาเทวดารักษาได้ทุกโรค',
-  'cure cancer',
-  'weight loss fast',
-  '100% safe',
-  'doctor recommended',
-];
 
 type ProductType =
   | 'FOOD'
@@ -44,8 +27,11 @@ const PRODUCT_PATTERNS: Array<{ productType: ProductType; keywords: string[] }> 
 let warningBannerInjected = false;
 let warningPopupInjected = false;
 let blockOverlayInjected = false;
+let localWarningAcknowledged = false;
+let scanDebounceTimer: number | undefined;
 
 function scanPageContent() {
+  if (blockOverlayInjected || localWarningAcknowledged) return;
   chrome.storage.local.get(['extensionMode', 'autoScan', 'riskLevel'], (settings) => {
     const isAutoScanEnabled = settings.autoScan !== false && settings.riskLevel !== 'MANUAL';
     if (!isAutoScanEnabled) {
@@ -53,11 +39,10 @@ function scanPageContent() {
     }
 
     const bodyText = document.body.innerText || '';
-    const matchedPhrases = EXAGGERATED_PHRASES.filter((phrase) =>
-      bodyText.toLowerCase().includes(phrase.toLowerCase()),
-    );
+    const localSignals = analyzeLocalPageSignals(bodyText);
+    const matchedPhrases = localSignals.matchedClaims;
 
-    if (matchedPhrases.length > 0 && !blockOverlayInjected) {
+    if (localSignals.shouldWarn && !blockOverlayInjected) {
       if (!warningBannerInjected) {
         injectWarningBanner(matchedPhrases);
       }
@@ -73,9 +58,9 @@ function checkDomainBlockedOnLoad() {
 
   chrome.runtime.sendMessage({ action: 'CHECK_DOMAIN', domain: currentDomain }, (response) => {
     if (response && response.isBlocked) {
-      injectBlockOverlay('โดเมนนี้ถูกขึ้นบัญชีเฝ้าระวังและบล็อกการเข้าถึงจากศูนย์ควบคุมโฆษณาผิดกฎหมาย');
+      injectBlockOverlay(response.reason || 'โดเมนนี้ถูกขึ้นบัญชีเฝ้าระวังและบล็อกการเข้าถึงจากศูนย์ควบคุมโฆษณาผิดกฎหมาย');
     } else {
-      setTimeout(scanPageContent, 1000);
+      setTimeout(scanPageContent, 250);
     }
   });
 }
@@ -164,12 +149,14 @@ function injectWarningPopup(phrases: string[]) {
   bypassBtn.onclick = () => {
     document.body.removeChild(overlay);
     warningPopupInjected = false;
+    localWarningAcknowledged = true;
     chrome.runtime.sendMessage({ action: 'OPEN_EXTENSION_POPUP' });
   };
 
   closeBtn.onclick = () => {
     document.body.removeChild(overlay);
     warningPopupInjected = false;
+    localWarningAcknowledged = true;
   };
 }
 
@@ -288,6 +275,65 @@ function injectWarningBanner(phrases: string[]) {
   document.body.style.marginTop = '45px';
 }
 
+function injectAiResultAlert(message: { score: number; analysis?: string; recommendedAction?: string }) {
+  document.getElementById('kp-ad-shield-ai-alert')?.remove();
+
+  const alert = document.createElement('aside');
+  alert.id = 'kp-ad-shield-ai-alert';
+  alert.setAttribute('role', 'alert');
+  alert.style.cssText = `
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    width: min(390px, calc(100vw - 36px));
+    z-index: 2147483647;
+    box-sizing: border-box;
+    padding: 18px;
+    border: 1px solid ${message.score >= 80 ? '#fecaca' : '#fde68a'};
+    border-left: 6px solid ${message.score >= 80 ? '#dc2626' : '#d97706'};
+    border-radius: 16px;
+    background: #ffffff;
+    color: #17211d;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
+    font-family: "IBM Plex Sans Thai", "Segoe UI", Tahoma, sans-serif;
+  `;
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;';
+  const title = document.createElement('strong');
+  title.textContent = message.score >= 80 ? 'Sentinel ADS พบความเสี่ยงสูง' : 'Sentinel ADS พบความเสี่ยงที่ควรตรวจสอบ';
+  title.style.cssText = `font-size:15px;color:${message.score >= 80 ? '#b91c1c' : '#92400e'};`;
+  const score = document.createElement('span');
+  score.textContent = `${Math.round(message.score)}%`;
+  score.style.cssText = `padding:4px 9px;border-radius:999px;background:${message.score >= 80 ? '#fee2e2' : '#fef3c7'};font-weight:800;`;
+  header.append(title, score);
+
+  const detail = document.createElement('p');
+  detail.textContent = (message.analysis || 'ผลวิเคราะห์จาก AI แนะนำให้เจ้าหน้าที่ตรวจสอบหน้านี้').slice(0, 280);
+  detail.style.cssText = 'margin:0 0 12px;font-size:13px;line-height:1.55;color:#475569;';
+
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;';
+  const action = document.createElement('span');
+  action.textContent = `คำแนะนำ: ${message.recommendedAction || 'REVIEW_REQUIRED'}`;
+  action.style.cssText = 'font-size:11px;font-weight:700;color:#64748b;';
+  const buttons = document.createElement('div');
+  buttons.style.cssText = 'display:flex;gap:6px;';
+  const detailsButton = document.createElement('button');
+  detailsButton.textContent = 'ดูผลตรวจ';
+  detailsButton.style.cssText = 'border:0;border-radius:999px;padding:7px 12px;background:#047857;color:white;font-weight:700;cursor:pointer;';
+  detailsButton.onclick = () => chrome.runtime.sendMessage({ action: 'OPEN_EXTENSION_POPUP' });
+  const closeButton = document.createElement('button');
+  closeButton.textContent = 'ปิด';
+  closeButton.style.cssText = 'border:1px solid #cbd5e1;border-radius:999px;padding:7px 10px;background:white;color:#475569;font-weight:700;cursor:pointer;';
+  closeButton.onclick = () => alert.remove();
+  buttons.append(detailsButton, closeButton);
+  footer.append(action, buttons);
+
+  alert.append(header, detail, footer);
+  document.body.appendChild(alert);
+}
+
 function injectBlockOverlay(reason: string) {
   blockOverlayInjected = true;
 
@@ -396,7 +442,16 @@ function classifyProductType(text: string): ProductType {
 chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'BLOCK_SCREEN' && !blockOverlayInjected) {
     injectBlockOverlay(message.reason);
+  } else if (message.action === 'SCAN_RESULT' && !blockOverlayInjected) {
+    injectAiResultAlert(message);
   }
 });
 
 checkDomainBlockedOnLoad();
+
+const pageObserver = new MutationObserver(() => {
+  if (blockOverlayInjected || localWarningAcknowledged) return;
+  window.clearTimeout(scanDebounceTimer);
+  scanDebounceTimer = window.setTimeout(scanPageContent, 600);
+});
+pageObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });

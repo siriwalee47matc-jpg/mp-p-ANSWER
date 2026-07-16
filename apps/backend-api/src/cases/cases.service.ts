@@ -308,7 +308,6 @@ export class CasesService {
       title: item.title,
       url: item.url,
       evidenceText: item.evidenceText ?? undefined,
-      evidenceImage: item.evidenceImage ?? undefined,
       productLicenseNumber: item.productLicenseNumber ?? undefined,
     });
     const osintResult = await this.inspectUrlWithTimeout(item.url, item.domain);

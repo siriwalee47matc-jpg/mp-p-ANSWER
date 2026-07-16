@@ -351,7 +351,7 @@ function Popup() {
     setRiskLevel(level);
     const autoScan = level !== 'MANUAL';
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ riskLevel: level, autoScan });
+      chrome.storage.local.set({ riskLevel: level, autoScan, riskLevelOverride: true });
     } else {
       localStorage.setItem('riskLevel', level);
       localStorage.setItem('autoScan', String(autoScan));
@@ -680,7 +680,7 @@ function Popup() {
               title="ตั้งค่า (Settings)"
               type="button"
             >
-
+              ⚙️
             </button>
           </div>
 
@@ -688,9 +688,11 @@ function Popup() {
             <div className={`status-badge ${riskLevel !== 'MANUAL' ? 'status-active' : 'status-standby'}`}>
               <span className="status-dot"></span>
               <span className="status-text">
-                {riskLevel !== 'MANUAL'
-                  ? 'เฝ้าระวังอัตโนมัติ (กำลังตรวจจับอัตโนมัติ)'
-                  : 'พร้อมสแกนตรวจสอบ (พร้อมตรวจสอบ)'}
+                {riskLevel === 'AUTO_BLOCK'
+                  ? 'ปิดกั้นอัตโนมัติ (คุ้มครองหน้าเว็บเสี่ยงสูง)'
+                  : riskLevel === 'AUTO_DETECT'
+                    ? 'เฝ้าระวังอัตโนมัติ (ตรวจจับและแจ้งเตือน)'
+                    : 'พร้อมสแกนตรวจสอบ (โหมดเจ้าหน้าที่)'}
               </span>
             </div>
           </div>

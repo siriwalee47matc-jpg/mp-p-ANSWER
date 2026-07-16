@@ -26,6 +26,8 @@ type IpRdapSummary = {
 export class OsintService {
   private dnsBootstrapCache?: any;
   private ipv4BootstrapCache?: any;
+  private inspectionCache = new Map<string, { expiresAt: number; result: any }>();
+  private inspectionInFlight = new Map<string, Promise<any>>();
 
   private fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 6000) {
     return fetch(url, {
@@ -36,6 +38,27 @@ export class OsintService {
 
   async inspectUrl(urlStr: string) {
     const domain = this.extractDomain(urlStr);
+    const cached = this.inspectionCache.get(domain);
+    if (cached && cached.expiresAt > Date.now()) return cached.result;
+
+    const existing = this.inspectionInFlight.get(domain);
+    if (existing) return existing;
+
+    const inspection = this.inspectDomain(urlStr, domain);
+    this.inspectionInFlight.set(domain, inspection);
+    try {
+      const result = await inspection;
+      this.inspectionCache.set(domain, {
+        expiresAt: Date.now() + 30 * 60 * 1000,
+        result,
+      });
+      return result;
+    } finally {
+      this.inspectionInFlight.delete(domain);
+    }
+  }
+
+  private async inspectDomain(_urlStr: string, domain: string) {
     const [aRecords, aaaaRecords, nsRecords, mxRecords] = await Promise.all([
       this.safeResolve(() => resolve4(domain)),
       this.safeResolve(() => resolve6(domain)),
