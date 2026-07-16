@@ -2,6 +2,15 @@ import { analyzeLocalPageSignals } from './scan-policy';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 type ProductType =
   | 'FOOD'
   | 'DRUG'
@@ -130,7 +139,7 @@ function injectWarningPopup(phrases: string[]) {
     
     <div style="background: rgba(230, 255, 248, 0.65); border: 1px solid rgba(13, 148, 136, 0.18); padding: 16px 20px; border-radius: 16px; font-size: 13.5px; color: #0f766e; text-align: left; margin-bottom: 24px; max-height: 100px; overflow-y: auto; font-family: inherit; line-height: 1.6;">
       <strong style="color: #052e2b;">สัญญาณที่ตรวจพบ:</strong><br/>
-      ${phrases.map(p => `• ${p}`).join('<br/>')}
+      ${phrases.map(p => `• ${escapeHtml(p)}`).join('<br/>')}
     </div>
     
     <div style="display: flex; gap: 12px; justify-content: center;">
@@ -186,7 +195,7 @@ function injectWarningBanner(phrases: string[]) {
   `;
 
   const textNode = document.createElement('div');
-  textNode.innerHTML = `ตรวจพบคำโฆษณาที่อาจเข้าข่ายผิดกฎหมาย <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:999px; font-size:12px; margin-left:8px;">${phrases.join(', ')}</span>`;
+  textNode.innerHTML = `ตรวจพบคำโฆษณาที่อาจเข้าข่ายผิดกฎหมาย <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:999px; font-size:12px; margin-left:8px;">${phrases.map(p => escapeHtml(p)).join(', ')}</span>`;
   banner.appendChild(textNode);
 
   const buttonContainer = document.createElement('div');
@@ -369,7 +378,7 @@ function injectBlockOverlay(reason: string) {
         ระบบตรวจพบสัญญาณความเสี่ยงโฆษณาสุขภาพผิดกฎหมายและระงับการเข้าถึงชั่วคราวเพื่อความปลอดภัย
       </p>
       <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); padding: 15px; border-radius: 12px; font-size: 13.5px; color: #fca5a5; text-align: left; margin-bottom: 24px; line-height: 1.5;">
-        <strong>เหตุผล:</strong> ${reason}
+        <strong>เหตุผล:</strong> ${escapeHtml(reason)}
       </div>
       <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
         <button id="kp-bypass-btn" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #d1d5db; padding: 10px 20px; border-radius: 999px; cursor: pointer; font-size: 13px;">

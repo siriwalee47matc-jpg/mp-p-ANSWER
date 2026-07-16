@@ -138,7 +138,8 @@ const getConciseSuspiciousKeywords = (text: string) => {
           .replace(/'/g, '&#039;');
 
         keywords.forEach(kw => {
-          const regex = new RegExp(`(${kw})`, 'gi');
+          const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`(${escaped})`, 'gi');
           highlighted = highlighted.replace(regex, '<mark style="background-color: #fee2e2; color: #b91c1c; padding: 1px 3px; border-radius: 4px; font-weight: bold; border: 1px solid #fecaca;">$1</mark>');
         });
 

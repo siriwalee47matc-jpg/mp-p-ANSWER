@@ -35,7 +35,7 @@ export class CasesController {
       try {
         const token = authHeader.split(' ')[1];
         const payload = await this.jwtService.verifyAsync(token, {
-          secret: process.env.JWT_SECRET || 'kp-ads-secret-key-123',
+          secret: process.env.JWT_SECRET,
         });
         reporterId = payload.id;
         if (payload.role === UserRole.INSPECTOR) {
@@ -85,7 +85,9 @@ export class CasesController {
   }
 
   @Post(':id/analyze')
-  @ApiOperation({ summary: 'สั่งให้ AI ตรวจจับพยานหลักฐานและวิเคราะห์ความเสี่ยงอัตโนมัติ (สิทธิ์สาธารณะ)' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'สั่งให้ AI ตรวจจับพยานหลักฐานและวิเคราะห์ความเสี่ยงอัตโนมัติ (ต้องล็อกอิน)' })
   async analyzeCase(@Param('id') id: string) {
     return this.aiService.evaluateCase(id);
   }
@@ -182,7 +184,7 @@ export class BlocksController {
    * ระบบจะ update blockStatus และ add domain to BlockedDomain list
    */
   @Post()
-  @ApiOperation({ summary: 'รับคำขอ Auto-Block จาก Extension (สาธารณะ)' })
+  @ApiOperation({ summary: 'รับคำขอ Auto-Block จาก Extension' })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.REVIEWER)
   @ApiBearerAuth()

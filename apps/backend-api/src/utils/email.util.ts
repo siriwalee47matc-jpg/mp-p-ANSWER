@@ -30,7 +30,7 @@ export class EmailUtil {
           pass: process.env.SMTP_PASS,
         },
         tls: {
-          rejectUnauthorized: false,
+          rejectUnauthorized: true,
         },
       });
       console.log(`[EmailUtil] Using SMTP provider: ${process.env.SMTP_HOST}`);
@@ -45,7 +45,7 @@ export class EmailUtil {
           pass: process.env.RESEND_API_KEY,
         },
         tls: {
-          rejectUnauthorized: false,
+          rejectUnauthorized: true,
         },
       });
       console.log('[EmailUtil] Using Resend provider');
