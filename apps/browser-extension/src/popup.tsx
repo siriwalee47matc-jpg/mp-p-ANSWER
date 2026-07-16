@@ -428,6 +428,7 @@ function Popup() {
     setLoading(true);
     setMessage(null);
     try {
+      await ensureApiReady();
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -926,6 +927,20 @@ function Popup() {
                     <label htmlFor="password" style={{ marginTop: '2px' }}>รหัสผ่าน</label>
                     <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required style={{ padding: '6px' }} />
                     <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '6px', padding: '8px 0' }}>เข้าสู่ระบบ</button>
+                    <button
+                      type="button"
+                      className="extension-register-link"
+                      onClick={() => {
+                        const registrationUrl = `${DASHBOARD_URL}/#register`;
+                        if (typeof chrome !== 'undefined' && chrome.tabs) {
+                          chrome.tabs.create({ url: registrationUrl });
+                        } else {
+                          window.open(registrationUrl, '_blank');
+                        }
+                      }}
+                    >
+                      ยังไม่มีบัญชี? สมัครบัญชีเจ้าหน้าที่
+                    </button>
                   </form>
                 </div>
               )}

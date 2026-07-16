@@ -1,7 +1,16 @@
-import { Injectable, Logger, OnModuleInit, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { UserRole } from '@kp-ads/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
+import { RegisterDto } from './register.dto';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -50,7 +59,7 @@ export class AuthService implements OnModuleInit {
 
   async login(email: string, pass: string) {
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email: email.trim().toLowerCase() },
     });
 
     if (!user) {
@@ -61,6 +70,33 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
     }
 
+    return this.createSession(user);
+  }
+
+  async register(input: RegisterDto) {
+    if (input.password !== input.confirmPassword) {
+      throw new BadRequestException('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน');
+    }
+
+    const email = input.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException('อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบ');
+    }
+
+    const user = await this.prisma.user.create({
+      data: {
+        name: input.name.trim(),
+        email,
+        passwordHash: this.hashPassword(input.password),
+        role: UserRole.INSPECTOR,
+      },
+    });
+
+    return this.createSession(user);
+  }
+
+  private createSession(user: { id: number; email: string; name: string; role: string }) {
     const payload = {
       id: user.id,
       email: user.email,

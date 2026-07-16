@@ -18,8 +18,11 @@ async function bootstrap() {
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
 
-  const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
-    .split(',')
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://sentinel-ads-ssk.vercel.app',
+    ...(process.env.CORS_ORIGINS || '').split(','),
+  ]
     .map((origin) => origin.trim())
     .filter(Boolean);
 
@@ -29,7 +32,6 @@ async function bootstrap() {
         !origin ||
         allowedOrigins.includes(origin) ||
         origin.startsWith('chrome-extension://') ||
-        origin.endsWith('.vercel.app') ||
         /https?:\/\/localhost(:\d+)?$/.test(origin)
       ) {
         callback(null, true);
@@ -38,6 +40,9 @@ async function bootstrap() {
       callback(new Error('Origin is not allowed by CORS'));
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Authorization',
+    optionsSuccessStatus: 204,
+    maxAge: 86400,
     credentials: false,
   });
 

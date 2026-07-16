@@ -2963,14 +2963,194 @@ body:has(.header) .header__user-badge {
 
 /* ── Login Section ── */
 .lp-login-section {
+  position: relative;
   padding: 6rem 0;
   background: var(--bg-main);
 }
 
+.auth-anchor {
+  position: absolute;
+  top: 0;
+  scroll-margin-top: 5rem;
+}
+
 .lp-login-card {
-  max-width: 520px;
+  max-width: 620px;
   margin: 0 auto;
   padding: 2.5rem;
+}
+
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 0.35rem;
+  margin-bottom: 1.75rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(15, 118, 110, 0.14);
+  border-radius: 1rem;
+  background: rgba(226, 242, 237, 0.65);
+}
+
+.auth-mode-switch button {
+  border: 0;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 750;
+  padding: 0.75rem 0.65rem;
+  transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.auth-mode-switch button.is-active {
+  background: #fff;
+  color: #075d3c;
+  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.12);
+}
+
+.password-field {
+  position: relative;
+  display: flex;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 4.75rem;
+}
+
+.password-field button {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 0.55rem;
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 750;
+  padding: 0.35rem 0.55rem;
+}
+
+.password-strength {
+  margin: -0.35rem 0 1.2rem;
+  padding: 1rem;
+  border: 1px solid rgba(100, 116, 139, 0.15);
+  border-radius: 1rem;
+  background: rgba(248, 250, 252, 0.84);
+}
+
+.password-strength__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.79rem;
+}
+
+.password-strength__heading strong {
+  color: #475569;
+}
+
+.password-strength__bars {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+  margin: 0.65rem 0 0.85rem;
+}
+
+.password-strength__bars span {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: #dbe4e9;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.password-strength__bars span.is-filled {
+  background: #ef4444;
+  transform: scaleY(1.2);
+}
+
+.strength-2 .password-strength__bars span.is-filled { background: #f97316; }
+.strength-3 .password-strength__bars span.is-filled { background: #eab308; }
+.strength-4 .password-strength__bars span.is-filled { background: #22c55e; }
+.strength-5 .password-strength__bars span.is-filled { background: #078558; }
+.strength-4 .password-strength__heading strong,
+.strength-5 .password-strength__heading strong { color: #078558; }
+
+.password-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.password-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.password-checklist li.is-valid,
+.password-match.is-valid {
+  color: #078558;
+}
+
+.password-match {
+  margin-top: -0.15rem;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.password-match.is-invalid {
+  color: #dc2626;
+}
+
+.registration-security-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0 0 1.15rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(2, 132, 199, 0.12);
+  border-radius: 0.85rem;
+  background: rgba(224, 242, 254, 0.48);
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.registration-security-note svg {
+  flex: 0 0 auto;
+  color: #0284c7;
+}
+
+.auth-text-button {
+  display: block;
+  margin: 0.95rem auto 0;
+  border: 0;
+  background: transparent;
+  color: #0f766e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .lp-login-card { padding: 1.35rem; }
+  .auth-mode-switch { grid-template-columns: 1fr; }
+  .password-checklist { grid-template-columns: 1fr; }
 }
 
 .lp-login-card .login-panel__header h3 {
@@ -3826,4 +4006,3 @@ main,
     transform: translateY(0);
   }
 }
-

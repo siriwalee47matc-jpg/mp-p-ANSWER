@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi, readApiResponse } from '@/lib/api';
 
 const chromeWebStoreUrl = process.env.NEXT_PUBLIC_CHROME_WEB_STORE_URL?.trim();
 const extensionDownloadUrl = chromeWebStoreUrl || '/downloads/sentinel-ads-extension.zip';
@@ -11,6 +11,21 @@ type PublicMetrics = {
   downloadClicks: number;
   extensionInstalls: number;
 };
+
+type AuthMode = 'login' | 'register';
+
+const passwordRequirements = [
+  { key: 'length', label: 'อย่างน้อย 12 ตัวอักษร', test: (value: string) => value.length >= 12 },
+  { key: 'lowercase', label: 'ตัวพิมพ์เล็ก (a-z)', test: (value: string) => /[a-z]/.test(value) },
+  { key: 'uppercase', label: 'ตัวพิมพ์ใหญ่ (A-Z)', test: (value: string) => /[A-Z]/.test(value) },
+  { key: 'number', label: 'ตัวเลข (0-9)', test: (value: string) => /[0-9]/.test(value) },
+  { key: 'special', label: 'อักขระพิเศษ เช่น !@#$', test: (value: string) => /[^A-Za-z0-9\s]/.test(value) },
+];
+
+function getApiError(data: Record<string, any>, fallback: string): string {
+  if (Array.isArray(data.message)) return data.message.join(', ');
+  return typeof data.message === 'string' ? data.message : fallback;
+}
 
 /* ─── Inline SVG Components ─── */
 const ShieldLogo = () => (
@@ -156,9 +171,14 @@ function useCountUp(target: number, duration = 2000, isActive = false) {
 export default function LandingPage() {
   const router = useRouter();
 
-  /* Login state (preserved) */
+  /* Authentication state */
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -195,6 +215,23 @@ export default function LandingPage() {
       localStorage.clear();
     }
   }, [router]);
+
+  useEffect(() => {
+    const syncAuthModeWithHash = () => {
+      const mode = window.location.hash === '#register' ? 'register' : 'login';
+      setAuthMode(mode);
+      setError('');
+      if (mode === 'register') {
+        window.requestAnimationFrame(() => {
+          document.getElementById('login')?.scrollIntoView({ block: 'start' });
+        });
+      }
+    };
+
+    syncAuthModeWithHash();
+    window.addEventListener('hashchange', syncAuthModeWithHash);
+    return () => window.removeEventListener('hashchange', syncAuthModeWithHash);
+  }, []);
 
   /* Scroll effects */
   useEffect(() => {
@@ -269,7 +306,29 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
-  /* Login handler (preserved) */
+  const saveSession = (data: Record<string, any>) => {
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    router.push(data.user.role === 'EXECUTIVE' ? '/dashboard' : '/cases');
+  };
+
+  const selectAuthMode = (mode: AuthMode) => {
+    setAuthMode(mode);
+    setError('');
+    window.history.replaceState(null, '', mode === 'register' ? '#register' : '#login');
+  };
+
+  const passwordScore = passwordRequirements.filter((requirement) => requirement.test(password)).length;
+  const passwordStrength = [
+    'ยังไม่ได้กรอก',
+    'อ่อนมาก',
+    'อ่อน',
+    'พอใช้',
+    'แข็งแรง',
+    'แข็งแรงมาก',
+  ][passwordScore];
+
+  /* Login handler */
   const handleLogin = async (e?: React.FormEvent, presetEmail?: string) => {
     e?.preventDefault();
     setLoading(true);
@@ -287,18 +346,50 @@ export default function LandingPage() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/auth/login`, {
+      const res = await fetchApi('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'ไม่สามารถเข้าสู่ระบบได้');
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      router.push(data.user.role === 'EXECUTIVE' ? '/dashboard' : '/cases');
-    } catch (err: any) {
-      setError(err.message || 'ไม่สามารถเชื่อมต่อกับระบบหลังบ้านได้');
+      const data = await readApiResponse(res);
+      if (!res.ok) throw new Error(getApiError(data, 'ไม่สามารถเข้าสู่ระบบได้'));
+      saveSession(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'ไม่สามารถเชื่อมต่อกับระบบหลังบ้านได้');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!name.trim() || !email.trim()) {
+      setError('กรุณากรอกชื่อและอีเมลให้ครบถ้วน');
+      return;
+    }
+    if (passwordScore < passwordRequirements.length) {
+      setError('รหัสผ่านยังไม่ครบตามเงื่อนไขความปลอดภัย');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetchApi('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, confirmPassword }),
+      });
+      const data = await readApiResponse(res);
+      if (!res.ok) throw new Error(getApiError(data, 'ไม่สามารถสร้างบัญชีได้'));
+      saveSession(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'ไม่สามารถเชื่อมต่อกับระบบหลังบ้านได้');
     } finally {
       setLoading(false);
     }
@@ -661,6 +752,7 @@ export default function LandingPage() {
 
       {/* ─── LOGIN ─── */}
       <section className="lp-login-section" id="login" aria-labelledby="login-heading">
+        <span id="register" className="auth-anchor" aria-hidden="true" />
         <div className="lp-section__inner">
           <div className="lp-section__header">
             <span className="lp-chip">
@@ -674,43 +766,178 @@ export default function LandingPage() {
           </div>
 
           <div className="lp-login-card card">
+            <div className="auth-mode-switch" role="tablist" aria-label="เลือกรูปแบบการเข้าใช้งาน">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={authMode === 'login'}
+                className={authMode === 'login' ? 'is-active' : ''}
+                onClick={() => selectAuthMode('login')}
+              >
+                เข้าสู่ระบบ
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={authMode === 'register'}
+                className={authMode === 'register' ? 'is-active' : ''}
+                onClick={() => selectAuthMode('register')}
+              >
+                สมัครบัญชีเจ้าหน้าที่
+              </button>
+            </div>
+
             <div className="login-panel__header">
               <span className="lp-chip">การเข้าถึงอย่างปลอดภัย</span>
-              <h3>เข้าสู่ระบบปฏิบัติการ</h3>
-              <p>สำหรับเจ้าหน้าที่ตรวจสอบ, นิติกร, ผู้ทบทวน และผู้บริหาร</p>
+              <h3>{authMode === 'login' ? 'เข้าสู่ระบบปฏิบัติการ' : 'สร้างบัญชีเจ้าหน้าที่'}</h3>
+              <p>
+                {authMode === 'login'
+                  ? 'สำหรับเจ้าหน้าที่ตรวจสอบ, นิติกร, ผู้ทบทวน และผู้บริหาร'
+                  : 'บัญชีใหม่จะเริ่มต้นด้วยสิทธิ์เจ้าหน้าที่ตรวจสอบ เพื่อความปลอดภัยของระบบ'}
+              </p>
             </div>
 
             {error && <div className="alert alert-error" role="alert">{error}</div>}
 
-            <form onSubmit={handleLogin} noValidate>
-              <div className="form-group">
-                <label htmlFor="login-email">อีเมล</label>
-                <input
-                  id="login-email"
-                  type="email"
-                  placeholder="name@fda.go.th"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                  autoComplete="email"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="login-password">รหัสผ่าน</label>
-                <input
-                  id="login-password"
-                  type="password"
-                  placeholder="กรอกรหัสผ่าน"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
-              </div>
-              <button type="submit" id="login-submit-btn" className="btn btn-primary login-panel__submit" disabled={loading}>
-                {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ ศูนย์ควบคุม'}
-              </button>
-            </form>
+            {authMode === 'login' ? (
+              <form onSubmit={handleLogin} noValidate>
+                <div className="form-group">
+                  <label htmlFor="login-email">อีเมล</label>
+                  <input
+                    id="login-email"
+                    type="email"
+                    placeholder="name@fda.go.th"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="login-password">รหัสผ่าน</label>
+                  <div className="password-field">
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="กรอกรหัสผ่าน"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
+                      autoComplete="current-password"
+                    />
+                    <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                      {showPassword ? 'ซ่อน' : 'แสดง'}
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" id="login-submit-btn" className="btn btn-primary login-panel__submit" disabled={loading}>
+                  {loading ? 'กำลังเชื่อมต่อเซิร์ฟเวอร์...' : 'เข้าสู่ศูนย์ควบคุม'}
+                </button>
+                <button type="button" className="auth-text-button" onClick={() => selectAuthMode('register')}>
+                  ยังไม่มีบัญชี? สมัครบัญชีเจ้าหน้าที่
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} noValidate>
+                <div className="form-group">
+                  <label htmlFor="register-name">ชื่อ–นามสกุล</label>
+                  <input
+                    id="register-name"
+                    type="text"
+                    placeholder="ชื่อและนามสกุลเจ้าหน้าที่"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={loading}
+                    autoComplete="name"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="register-email">อีเมล</label>
+                  <input
+                    id="register-email"
+                    type="email"
+                    placeholder="name@fda.go.th"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="register-password">สร้างรหัสผ่าน</label>
+                  <div className="password-field">
+                    <input
+                      id="register-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="อย่างน้อย 12 ตัวอักษร"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
+                      autoComplete="new-password"
+                    />
+                    <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                      {showPassword ? 'ซ่อน' : 'แสดง'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className={`password-strength strength-${passwordScore}`} aria-live="polite">
+                  <div className="password-strength__heading">
+                    <span>ความปลอดภัยของรหัสผ่าน</span>
+                    <strong>{passwordStrength}</strong>
+                  </div>
+                  <div className="password-strength__bars" aria-hidden="true">
+                    {passwordRequirements.map((requirement, index) => (
+                      <span key={requirement.key} className={index < passwordScore ? 'is-filled' : ''} />
+                    ))}
+                  </div>
+                  <ul className="password-checklist">
+                    {passwordRequirements.map((requirement) => {
+                      const passed = requirement.test(password);
+                      return (
+                        <li key={requirement.key} className={passed ? 'is-valid' : ''}>
+                          <span aria-hidden="true">{passed ? '✓' : '○'}</span>{requirement.label}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="register-confirm-password">ยืนยันรหัสผ่าน</label>
+                  <div className="password-field">
+                    <input
+                      id="register-confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="กรอกรหัสผ่านอีกครั้ง"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={loading}
+                      autoComplete="new-password"
+                      aria-invalid={Boolean(confirmPassword && password !== confirmPassword)}
+                    />
+                    <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} aria-label={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                      {showConfirmPassword ? 'ซ่อน' : 'แสดง'}
+                    </button>
+                  </div>
+                  {confirmPassword && (
+                    <span className={password === confirmPassword ? 'password-match is-valid' : 'password-match is-invalid'}>
+                      {password === confirmPassword ? '✓ รหัสผ่านตรงกัน' : 'รหัสผ่านยังไม่ตรงกัน'}
+                    </span>
+                  )}
+                </div>
+                <div className="registration-security-note">
+                  <LockIcon />
+                  <span>รหัสผ่านจะถูกเข้ารหัสแบบ one-way และบัญชีใหม่จะไม่ได้รับสิทธิ์ผู้ดูแลระบบ</span>
+                </div>
+                <button type="submit" className="btn btn-primary login-panel__submit" disabled={loading}>
+                  {loading ? 'กำลังสร้างบัญชี...' : 'สมัครและเข้าสู่ระบบ'}
+                </button>
+                <button type="button" className="auth-text-button" onClick={() => selectAuthMode('login')}>
+                  มีบัญชีแล้ว? กลับไปเข้าสู่ระบบ
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </section>
