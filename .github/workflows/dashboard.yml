@@ -44,6 +44,7 @@ jobs:
       - run: npm install --global npm@10.9.4
       - run: npm ci
       - run: npm run lint --workspace=packages/shared
+      - run: npm run build --workspace=packages/shared
       - run: npm run lint --workspace=apps/dashboard-web
       - run: npm run test --workspace=apps/dashboard-web
       - run: npm run build --workspace=apps/dashboard-web
