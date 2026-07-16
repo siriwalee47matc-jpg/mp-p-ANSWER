@@ -702,7 +702,7 @@ export default function LandingPage() {
               {...(!chromeWebStoreUrl ? { download: 'sentinel-ads-extension.zip' } : {})}
             >
               <ChromeIcon />
-              {chromeWebStoreUrl ? 'เพิ่มใน Chrome – ติดตั้งฟรี' : 'ดาวน์โหลดส่วนขยายสำหรับ Chrome'}
+              {chromeWebStoreUrl ? 'เพิ่มใน Chrome – ติดตั้งฟรี' : 'ดาวน์โหลดส่วนขยาย v1.0.4 สำหรับ Chrome'}
             </a>
 
             {!chromeWebStoreUrl && (
