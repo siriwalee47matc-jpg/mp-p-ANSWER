@@ -1,0 +1,41 @@
+name: Dashboard Web CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'apps/dashboard-web/**'
+      - 'libs/shared/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'apps/dashboard-web/**'
+      - 'libs/shared/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/dashboard-web
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: './package-lock.json'
+
+    - name: Install Dependencies
+      run: npm install
+      working-directory: .
+
+    - name: Run Linter
+      run: npm run lint
+      continue-on-error: true
+
+    - name: Build
+      run: npm run build
