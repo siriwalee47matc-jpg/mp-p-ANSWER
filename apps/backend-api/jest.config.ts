@@ -5,10 +5,18 @@ const config: Config = {
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.ts$': 'ts-jest',
   },
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
+  coverageThreshold: {
+    global: {
+      statements: 20,
+      branches: 15,
+      functions: 15,
+      lines: 20,
+    },
+  },
   testEnvironment: 'node',
 };
 

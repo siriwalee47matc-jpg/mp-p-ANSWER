@@ -4,7 +4,9 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
-import { json, urlencoded } from 'express';
+import { json, NextFunction, Request, Response, urlencoded } from 'express';
+import helmet from 'helmet';
+import { isOriginAllowed } from './security/origin-policy';
 
 loadEnvironment({ path: resolve(__dirname, '../.env') });
 
@@ -15,31 +17,50 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:'],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+      referrerPolicy: { policy: 'no-referrer' },
+    }),
+  );
+
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
 
-  const allowedOrigins = [
-    'http://localhost:3000',
+  const isProduction = process.env.NODE_ENV === 'production';
+  const allowedOrigins = Array.from(new Set([
     'https://sentinel-ads-ssk.vercel.app',
+    ...(!isProduction ? ['http://localhost:3000'] : []),
     ...(process.env.CORS_ORIGINS || '').split(','),
   ]
     .map((origin) => origin.trim())
-    .filter(Boolean);
+    .filter(Boolean)));
 
-  const isProduction = process.env.NODE_ENV === 'production';
+  const originPolicy = { allowedOrigins, isProduction };
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const origin = req.headers.origin;
+    if (!isOriginAllowed(origin, originPolicy)) {
+      res.status(403).json({ statusCode: 403, message: 'Origin is not allowed by CORS' });
+      return;
+    }
+    next();
+  });
 
   app.enableCors({
     origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.startsWith('chrome-extension://') ||
-        (!isProduction && /https?:\/\/localhost(:\d+)?$/.test(origin))
-      ) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error('Origin is not allowed by CORS'));
+      callback(null, isOriginAllowed(origin, originPolicy));
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type,Authorization',

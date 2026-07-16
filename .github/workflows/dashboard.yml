@@ -2,40 +2,49 @@ name: Dashboard Web CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
     paths:
       - 'apps/dashboard-web/**'
-      - 'libs/shared/**'
+      - 'apps/browser-extension/**'
+      - 'packages/shared/**'
+      - 'scripts/package-extension.cjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/dashboard.yml'
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
     paths:
       - 'apps/dashboard-web/**'
-      - 'libs/shared/**'
+      - 'apps/browser-extension/**'
+      - 'packages/shared/**'
+      - 'scripts/package-extension.cjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/dashboard.yml'
+
+concurrency:
+  group: dashboard-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  verify:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/dashboard-web
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_API_URL: https://sentinel-ads-api.onrender.com
+      VERCEL: '1'
 
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Use Node.js 20
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: './package-lock.json'
-
-    - name: Install Dependencies
-      run: npm install
-      working-directory: .
-
-    - name: Run Linter
-      run: npm run lint
-      continue-on-error: true
-
-    - name: Build
-      run: npm run build
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm install --global npm@10.9.4
+      - run: npm ci
+      - run: npm run lint --workspace=packages/shared
+      - run: npm run build --workspace=packages/shared
+      - run: npm run lint --workspace=apps/dashboard-web
+      - run: npm run test --workspace=apps/dashboard-web
+      - run: npm run build --workspace=apps/dashboard-web

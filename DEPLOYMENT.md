@@ -56,3 +56,28 @@ Before releasing, set a unique extension ID policy and add its origin to the API
 - Protect database backups, rotate credentials, and set an alerting mailbox before go-live.
 - The API must run behind HTTPS. Never store API keys or production passwords in repository files.
 - The chatbot only returns provider answers in production. If Gemini is not configured or fails, it returns a visible service error instead of a canned answer. Check Render logs and confirm `AI_PROVIDER`, `GEMINI_API_KEY`, and `GEMINI_MODEL` are configured before release.
+
+## Release verification
+
+Use Node.js 20 and npm 10.9.4. Every release candidate must pass the following commands from the repository root:
+
+```text
+npm ci
+npm run prisma:validate
+npm run lint
+npm run test:coverage
+npm run build
+npm run audit:prod
+```
+
+After deploying both services, run the read-only production checks:
+
+```text
+npm run smoke:production
+```
+
+The smoke test verifies public availability, security headers, protected-route authentication, and allowed/rejected CORS preflights. It does not create or modify production records.
+
+### Temporary dependency exception
+
+Next.js 16.2.10 currently pins PostCSS 8.4.31, which causes `npm audit` to report two moderate findings for GHSA-qx2v-qp2m-jg93. The release gate rejects high and critical findings. Do not use `npm audit fix --force`, because npm proposes an incompatible Next.js downgrade. Upgrade to the first stable Next.js release that includes PostCSS 8.5.10 or newer, then remove this exception.

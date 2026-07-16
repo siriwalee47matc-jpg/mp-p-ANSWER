@@ -4,7 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build"
+    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage.enabled=true"
   },
   "dependencies": {
     "@kp-ads/shared": "*",
@@ -19,6 +23,6 @@
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.4.3",
-    "vite": "^5.1.6"
+    "vite": "6.4.3"
   }
 }

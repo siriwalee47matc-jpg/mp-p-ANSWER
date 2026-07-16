@@ -26,7 +26,7 @@ export async function fetchApi(
       if (attempt === retryDelays.length) break;
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, retryDelays[attempt]));
+    await new Promise((resolve) => globalThis.setTimeout(resolve, retryDelays[attempt]));
   }
 
   throw new Error(
