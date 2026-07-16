@@ -339,7 +339,11 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     const currentTab = await chrome.tabs.get(tabId).catch(() => null);
     if (!currentTab || currentTab.url !== activeTab.url) return;
 
-    const combinedText = `${activeTab.title || ''}\n${activeTab.url}\n${pageSignals.text}\n${pageSignals.imageSignalsText || ''}`;
+    const textEvidence = `${activeTab.title || ''}\n${activeTab.url}\n${pageSignals.text}`;
+    const imageEvidence = `${activeTab.title || ''}\n${pageSignals.imageSignalsText || ''}`;
+    const combinedText = `${textEvidence}\n${pageSignals.imageSignalsText || ''}`;
+    const textLocalSignals = analyzeLocalPageSignals(textEvidence);
+    const imageLocalSignals = analyzeLocalPageSignals(imageEvidence);
     const localSignals = analyzeLocalPageSignals(combinedText);
     if (!localSignals.shouldAnalyze) {
       await chrome.storage.local.set({
@@ -350,7 +354,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
 
     const [, evidenceImage] = await Promise.all([
       ensureApiReady(),
-      currentTab.active
+      currentTab.active && !textLocalSignals.shouldAnalyze && imageLocalSignals.shouldAnalyze
         ? chrome.tabs
             .captureVisibleTab(chrome.windows.WINDOW_ID_CURRENT, { format: 'jpeg', quality: 55 })
             .catch((err) => {

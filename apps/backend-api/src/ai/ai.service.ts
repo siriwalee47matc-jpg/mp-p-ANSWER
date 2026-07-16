@@ -236,11 +236,11 @@ export class AiService {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.1,
+            temperature: 0,
             thinkingConfig: isGemini3
               ? { thinkingLevel: 'minimal' }
               : { thinkingBudget: 0 },
-            maxOutputTokens: 1000,
+            maxOutputTokens: 700,
             responseMimeType: 'application/json',
             responseSchema: {
               type: 'OBJECT',
@@ -408,7 +408,7 @@ Accuracy and safety rules:
 - Every material finding must be supported by an exact short quote copied character-for-character from title or evidenceText. Put those quotes in evidenceQuotes. If no exact supporting quote exists, return an empty evidenceQuotes array, keep confidence low, and do not recommend AUTO_BLOCK.
 - Use AUTO_BLOCK only for an explicit high-harm health-product advertising claim with direct quoted evidence and high confidence. Ambiguous context must be REVIEW_REQUIRED. Benign or irrelevant content must be MONITOR.
 - confidence is a number from 0 to 1. aiRiskScore is 0 to 100.
-- Write aiAnalysis in clear Thai and explicitly state the evidence, uncertainty, and recommended next step. Do not present legal conclusions as final adjudication.
+- Write aiAnalysis in concise Thai (roughly 120-220 words) and explicitly state the evidence, uncertainty, and recommended next step. Do not present legal conclusions as final adjudication.
 - violationCategories must contain only categories supported by exact evidence, such as disease-cure, rapid-weight-loss, absolute-safety, false-authority, or misleading-health-claim.
 
 Return the structured fields required by the response schema and no additional prose.

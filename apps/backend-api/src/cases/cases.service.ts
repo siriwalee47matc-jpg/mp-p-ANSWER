@@ -304,14 +304,16 @@ export class CasesService {
 
   async analyzeCase(id: string) {
     const item = await this.findOne(id);
-    const classification = await this.scanIntelligenceService.analyzeInput({
-      title: item.title,
-      url: item.url,
-      evidenceText: item.evidenceText ?? undefined,
-      productLicenseNumber: item.productLicenseNumber ?? undefined,
-    });
-    const osintResult = await this.inspectUrlWithTimeout(item.url, item.domain);
-    const allowlistEntry = await this.allowlistService.findMatchingDomain(item.domain);
+    const [classification, osintResult, allowlistEntry] = await Promise.all([
+      this.scanIntelligenceService.analyzeInput({
+        title: item.title,
+        url: item.url,
+        evidenceText: item.evidenceText ?? undefined,
+        productLicenseNumber: item.productLicenseNumber ?? undefined,
+      }),
+      this.inspectUrlWithTimeout(item.url, item.domain),
+      this.allowlistService.findMatchingDomain(item.domain),
+    ]);
     const officialProductSources = this.lawsService.getOfficialSourcesByProduct(
       classification.productType,
       item.productLicenseNumber,
@@ -479,7 +481,7 @@ export class CasesService {
       return await Promise.race([
         this.osintService.inspectUrl(url),
         new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('OSINT request timed out')), 8000);
+          setTimeout(() => reject(new Error('OSINT request timed out')), 4500);
         }),
       ]);
     } catch (error) {
