@@ -26,13 +26,15 @@ async function bootstrap() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
   app.enableCors({
     origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
         origin.startsWith('chrome-extension://') ||
-        /https?:\/\/localhost(:\d+)?$/.test(origin)
+        (!isProduction && /https?:\/\/localhost(:\d+)?$/.test(origin))
       ) {
         callback(null, true);
         return;

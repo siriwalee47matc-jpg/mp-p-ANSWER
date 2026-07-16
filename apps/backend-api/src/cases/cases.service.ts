@@ -498,12 +498,34 @@ export class CasesService {
     }
   }
 
-  async updateAiAnalysis(id: string, aiRiskScore: number, aiAnalysis: string) {
+  async updateAiAnalysis(
+    id: string,
+    aiRiskScore: number,
+    aiAnalysis: string,
+    assessment?: {
+      confidence?: number;
+      evidenceQuotes?: string[];
+      violationCategories?: string[];
+      aiSource?: string;
+      aiModelName?: string;
+    },
+  ) {
     const updated = await this.prisma.case.update({
       where: { id },
       data: {
         aiRiskScore,
         aiAnalysis,
+        ...(assessment && {
+          aiConfidence: assessment.confidence ?? null,
+          aiEvidenceQuotes: assessment.evidenceQuotes
+            ? JSON.stringify(assessment.evidenceQuotes)
+            : null,
+          aiViolationCategories: assessment.violationCategories
+            ? JSON.stringify(assessment.violationCategories)
+            : null,
+          aiSource: assessment.aiSource ?? null,
+          aiModelName: assessment.aiModelName ?? null,
+        }),
       },
     });
 
@@ -511,7 +533,7 @@ export class CasesService {
       data: {
         caseId: id,
         action: 'AI_RE_ANALYSIS',
-        details: `AI analysis updated. Risk ${aiRiskScore}%`,
+        details: `AI analysis updated. Risk ${aiRiskScore}%. Source: ${assessment?.aiSource || 'unknown'}, Model: ${assessment?.aiModelName || 'unknown'}`,
       },
     });
 
@@ -524,6 +546,11 @@ export class CasesService {
       data: {
         aiRiskScore: null,
         aiAnalysis: null,
+        aiConfidence: null,
+        aiEvidenceQuotes: null,
+        aiViolationCategories: null,
+        aiSource: null,
+        aiModelName: null,
       },
     });
 
@@ -548,6 +575,15 @@ export class CasesService {
         domain: targetCase.domain,
         reason: `Blocked action suppressed by allowlist (${allowlistEntry.listType}/${allowlistEntry.action})`,
       };
+    }
+
+    // Revalidate: require real AI source (not rule-based fallback) for auto-block
+    const realAiSources = ['GEMINI', 'OPENAI', 'ANTHROPIC'];
+    const hasRealAiSource = realAiSources.includes(targetCase.aiSource ?? '');
+    if (!hasRealAiSource) {
+      throw new ForbiddenException(
+        'Automatic blocking requires a real AI assessment. Rule-based fallback analysis cannot be used for permanent domain blocking.',
+      );
     }
 
     const globalConfig = await this.prisma.globalConfig.findFirst();
@@ -575,12 +611,12 @@ export class CasesService {
     await this.prisma.blockedDomain.upsert({
       where: { domain: targetCase.domain },
       update: {
-        reason: `Auto-blocked by system (risk score: ${targetCase.aiRiskScore ?? 'N/A'}%) from case ${id}`,
+        reason: `Auto-blocked by system (risk score: ${targetCase.aiRiskScore ?? 'N/A'}%, AI: ${targetCase.aiSource}/${targetCase.aiModelName}) from case ${id}`,
         addedByUserId: performedByUserId,
       },
       create: {
         domain: targetCase.domain,
-        reason: `Auto-blocked by system (risk score: ${targetCase.aiRiskScore ?? 'N/A'}%) from case ${id}`,
+        reason: `Auto-blocked by system (risk score: ${targetCase.aiRiskScore ?? 'N/A'}%, AI: ${targetCase.aiSource}/${targetCase.aiModelName}) from case ${id}`,
         addedByUserId: performedByUserId,
       },
     });
@@ -588,7 +624,7 @@ export class CasesService {
     const blockLog = await this.prisma.blockLog.create({
       data: {
         caseId: id,
-        reason: `Auto-blocked by extension AUTO_BLOCK mode (score: ${targetCase.aiRiskScore ?? 0}%)`,
+        reason: `Auto-blocked by extension AUTO_BLOCK mode (score: ${targetCase.aiRiskScore ?? 0}%, source: ${targetCase.aiSource})`,
       },
     });
 
@@ -597,7 +633,7 @@ export class CasesService {
         caseId: id,
         userId: performedByUserId,
         action: 'AUTO_BLOCK',
-        details: `Domain ${targetCase.domain} auto-blocked by an authorized user. Risk score ${targetCase.aiRiskScore ?? 0}%`,
+        details: `Domain ${targetCase.domain} auto-blocked. Risk ${targetCase.aiRiskScore ?? 0}%. AI: ${targetCase.aiSource}/${targetCase.aiModelName}`,
       },
     });
 

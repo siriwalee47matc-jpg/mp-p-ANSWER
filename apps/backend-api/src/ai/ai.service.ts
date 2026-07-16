@@ -65,6 +65,13 @@ export class AiService {
             caseId,
             calibrated.aiRiskScore,
             calibrated.aiAnalysis,
+            {
+              confidence: calibrated.confidence,
+              evidenceQuotes: calibrated.evidenceQuotes,
+              violationCategories: calibrated.violationCategories,
+              aiSource: 'GEMINI',
+              aiModelName: modelName,
+            },
           );
           analysisResult = {
             ...analysisResult,
@@ -116,7 +123,13 @@ export class AiService {
           if (text) {
             const parsed = this.parseModelAssessment(JSON.parse(text.trim()));
             const calibrated = this.calibrateAssessment(parsed, analysisResult, baselineRiskScore);
-            const updatedCase = await this.casesService.updateAiAnalysis(caseId, calibrated.aiRiskScore, calibrated.aiAnalysis);
+            const updatedCase = await this.casesService.updateAiAnalysis(caseId, calibrated.aiRiskScore, calibrated.aiAnalysis, {
+              confidence: calibrated.confidence,
+              evidenceQuotes: calibrated.evidenceQuotes,
+              violationCategories: calibrated.violationCategories,
+              aiSource: 'OPENAI',
+              aiModelName: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+            });
             analysisResult = {
               ...analysisResult,
               aiRiskScore: updatedCase.aiRiskScore,
@@ -167,7 +180,13 @@ export class AiService {
           if (text) {
             const parsed = this.parseModelAssessment(JSON.parse(text.trim()));
             const calibrated = this.calibrateAssessment(parsed, analysisResult, baselineRiskScore);
-            const updatedCase = await this.casesService.updateAiAnalysis(caseId, calibrated.aiRiskScore, calibrated.aiAnalysis);
+            const updatedCase = await this.casesService.updateAiAnalysis(caseId, calibrated.aiRiskScore, calibrated.aiAnalysis, {
+              confidence: calibrated.confidence,
+              evidenceQuotes: calibrated.evidenceQuotes,
+              violationCategories: calibrated.violationCategories,
+              aiSource: 'ANTHROPIC',
+              aiModelName: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620',
+            });
             analysisResult = {
               ...analysisResult,
               aiRiskScore: updatedCase.aiRiskScore,
@@ -565,17 +584,16 @@ ${JSON.stringify(evidencePackage)}`;
 
     // Local-development fallback only. Production must never present canned answers as AI output.
     const text = message.toLowerCase();
-    let reply = 'ผมช่วยอธิบายการตรวจโฆษณา การจัดการคดี และการตั้งค่าความเสี่ยงได้ ลองพิมพ์ถามใหม่ได้เลยครับ';
+    let reply = '[DEV FALLBACK] ผมช่วยอธิบายการตรวจโฆษณา การจัดการคดี และการตั้งค่าความเสี่ยงได้ ลองพิมพ์ถามใหม่ได้เลยครับ';
     if (text.includes('ความเสี่ยง') || text.includes('risk')) {
-      reply = 'ระบบประเมินจากเนื้อหาโฆษณา ประเภทผลิตภัณฑ์ เลข อย. แหล่งที่มา และสัญญาณทางกฎหมาย จากนั้นจัดระดับเป็นตรวจสอบโดยเจ้าหน้าที่ ตรวจจับอัตโนมัติ หรือปิดกั้นอัตโนมัติ';
+      reply = '[DEV FALLBACK] ระบบประเมินจากเนื้อหาโฆษณา ประเภทผลิตภัณฑ์ เลข อย. แหล่งที่มา และสัญญาณทางกฎหมาย จากนั้นจัดระดับเป็นตรวจสอบโดยเจ้าหน้าที่ ตรวจจับอัตโนมัติ หรือปิดกั้นอัตโนมัติ';
     } else if (text.includes('คดี') || text.includes('ตรวจสอบ')) {
-      reply = 'เริ่มจากหน้าคดี เลือกคดีที่มีคะแนนความเสี่ยงสูง ตรวจหลักฐานและแหล่งข้อมูลทางการ แล้วส่งต่อให้นิติกรยืนยันข้อกฎหมายก่อนดำเนินการ';
+      reply = '[DEV FALLBACK] เริ่มจากหน้าคดี เลือกคดีที่มีคะแนนความเสี่ยงสูง ตรวจหลักฐานและแหล่งข้อมูลทางการ แล้วส่งต่อให้นิติกรยืนยันข้อกฎหมายก่อนดำเนินการ';
     } else if (text.includes('block') || text.includes('บล็อก')) {
-      reply = 'การปิดกั้นอัตโนมัติใช้กับสัญญาณความเสี่ยงสูงที่ผ่านเงื่อนไขความมั่นใจและรายการยกเว้นเท่านั้น ควรเริ่มจากการตรวจจับอัตโนมัติเพื่อปรับเกณฑ์ให้เหมาะกับหน่วยงาน';
+      reply = '[DEV FALLBACK] การปิดกั้นอัตโนมัติใช้กับสัญญาณความเสี่ยงสูงที่ผ่านเงื่อนไขความมั่นใจและรายการยกเว้นเท่านั้น ควรเริ่มจากการตรวจจับอัตโนมัติเพื่อปรับเกณฑ์ให้เหมาะกับหน่วยงาน';
     } else if (text.includes('สวัสดี') || text.includes('hello') || text.includes('hi')) {
-      reply = 'สวัสดีครับ ผมคือผู้ช่วยอัจฉริยะ Sentinel ADS ระบบเบื้องหลังออนไลน์ปกติและสามารถคุยกับผมได้แล้วครับ!';
+      reply = '[DEV FALLBACK] สวัสดีครับ ผมคือผู้ช่วยอัจฉริยะ Sentinel ADS ระบบเบื้องหลังออนไลน์ปกติและสามารถคุยกับผมได้แล้วครับ!';
     }
     return { reply };
   }
 }
-
