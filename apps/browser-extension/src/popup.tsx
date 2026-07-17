@@ -387,31 +387,20 @@ function Popup() {
       } else {
         pageSnippet = 'นี่คือตัวอย่างข้อความบนหน้าโฆษณาที่ผู้บริโภคพบว่าเข้าข่ายน่าสงสัย เช่น ยาสมุนไพรรักษาโรคสะเก็ดเงิน หายขาดร้อยเปอร์เซ็นต์ในสามวัน!';
       }
-      const res = await fetch(`${API_URL}/cases`, {
+      const res = await fetch(`${API_URL}/risk/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: citizenTitle || currentTab.title || 'โฆษณาต้องสงสัย',
           url: currentTab.url,
           productType: classifyProductType(`${citizenTitle || currentTab.title || ''}\n${currentTab.url}\n${pageSnippet}`),
-          evidenceText: pageSnippet || 'แจ้งจากระบบ Ad Shield'
+          evidenceText: pageSnippet || 'แจ้งจากระบบ Ad Shield',
+          reporterRole: 'CONSUMER',
         })
       });
-      const caseData = await readApiJson(res, 'สร้างรายการตรวจสอบ');
-      if (!res.ok) throw new Error(caseData.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
-      setCreatedCaseId(caseData.id);
-
-      // Call ระบบอัจฉริยะ analysis
-      const analyzeData = await analyzeCaseWithRetry({
-        apiUrl: API_URL,
-        caseId: caseData.id,
-        readJson: readApiJson,
-        operation: 'วิเคราะห์ด้วย AI',
-        fallbackMessage: 'การวิเคราะห์ ระบบอัจฉริยะ ล้มเหลว',
-        onRetry: ({ attempt, delayMs, error }) => {
-          console.warn(`AI analysis attempt ${attempt} failed; retrying in ${delayMs}ms:`, error.message);
-        },
-      });
+      const analyzeData = await readApiJson(res, 'สร้างและวิเคราะห์รายการตรวจสอบ');
+      if (!res.ok) throw new Error(analyzeData.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
+      setCreatedCaseId(analyzeData.id);
       setAiAnalysisResult(analyzeData);
       setDismissedNotification(false);
       setShowDetails(true);

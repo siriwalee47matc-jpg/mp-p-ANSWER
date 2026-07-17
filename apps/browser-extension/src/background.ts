@@ -1,6 +1,5 @@
 // Background Service Worker for Sentinel ADS Shield
 import { API_URL } from './config';
-import { analyzeCaseWithRetry } from './analysis-api';
 import { AllowlistEntry, analyzeLocalPageSignals, buildScanDecision } from './scan-policy';
 export {};
 
@@ -365,7 +364,7 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     ]);
     const productType = classifyProductType(combinedText);
 
-    const createRes = await fetch(`${API_URL}/cases`, {
+    const analyzeRes = await fetch(`${API_URL}/risk/logs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -380,19 +379,11 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       }),
     });
 
-    if (!createRes.ok) throw new Error('Failed to create background case');
-    const caseData = await readApiJson(createRes, 'Case creation');
-
-    const aiResult = await analyzeCaseWithRetry({
-      apiUrl: API_URL,
-      caseId: caseData.id,
-      readJson: readApiJson,
-      operation: 'AI analysis',
-      fallbackMessage: 'AI analysis failed',
-      onRetry: ({ attempt, delayMs, error }) => {
-        console.warn(`AI analysis attempt ${attempt} failed; retrying in ${delayMs}ms:`, error.message);
-      },
-    });
+    const aiResult = await readApiJson(analyzeRes, 'Automatic risk analysis');
+    if (!analyzeRes.ok) {
+      throw new Error(aiResult.message || `Automatic risk analysis failed (HTTP ${analyzeRes.status})`);
+    }
+    const caseData = aiResult;
     const score = aiResult.aiRiskScore || 0;
     const blockDecision = buildScanDecision(aiResult, riskLevel, allowlistEntry);
 

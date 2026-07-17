@@ -140,8 +140,9 @@ export class RiskLogsController {
     productLicenseNumber?: string;
     productType?: ProductType;
     riskLevel?: string;
+    reporterRole?: 'CONSUMER' | 'SYSTEM';
   }) {
-    // สร้าง Case ด้วย reporterRole = SYSTEM
+    // Automatic scans are SYSTEM events; manual citizen scans remain CONSUMER reports.
     const newCase = await this.casesService.create({
       title: body.title || `Auto-Scan: ${body.url}`,
       url: body.url,
@@ -150,7 +151,7 @@ export class RiskLogsController {
       evidenceImage: body.evidenceImage,
       imageSignalsText: body.imageSignalsText,
       productLicenseNumber: body.productLicenseNumber,
-      reporterRole: 'SYSTEM',
+      reporterRole: body.reporterRole === 'CONSUMER' ? 'CONSUMER' : 'SYSTEM',
     });
 
     // Trigger AI analysis ทันที

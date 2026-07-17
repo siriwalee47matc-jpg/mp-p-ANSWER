@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Sentinel ADS",
   "description": "Chrome extension that scans ads for false claims and provides AI analysis.",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
