@@ -85,4 +85,39 @@ describe('AiService', () => {
       { role: 'user', parts: [{ text: 'ระบบประเมินความเสี่ยงอย่างไร' }] },
     ]);
   });
+
+  it('uses the stable Gemini fallback model when the primary chat model fails', async () => {
+    const originalEnv = {
+      provider: process.env.AI_PROVIDER,
+      apiKey: process.env.GEMINI_API_KEY,
+      model: process.env.GEMINI_MODEL,
+      fallback: process.env.GEMINI_FALLBACK_MODEL,
+      nodeEnv: process.env.NODE_ENV,
+    };
+    process.env.AI_PROVIDER = 'gemini';
+    process.env.GEMINI_API_KEY = 'test-key';
+    process.env.GEMINI_MODEL = 'gemini-3.5-flash';
+    delete process.env.GEMINI_FALLBACK_MODEL;
+    process.env.NODE_ENV = 'production';
+
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response('quota exceeded', { status: 429 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: 'คำตอบจากโมเดลสำรอง' }] } }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    try {
+      await expect(service.chat('ทดสอบ', [])).resolves.toEqual({ reply: 'คำตอบจากโมเดลสำรอง' });
+      expect(fetchMock.mock.calls[0][0]).toContain('/gemini-3.5-flash:generateContent');
+      expect(fetchMock.mock.calls[1][0]).toContain('/gemini-3.1-flash-lite:generateContent');
+    } finally {
+      fetchMock.mockRestore();
+      if (originalEnv.provider === undefined) delete process.env.AI_PROVIDER; else process.env.AI_PROVIDER = originalEnv.provider;
+      if (originalEnv.apiKey === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = originalEnv.apiKey;
+      if (originalEnv.model === undefined) delete process.env.GEMINI_MODEL; else process.env.GEMINI_MODEL = originalEnv.model;
+      if (originalEnv.fallback === undefined) delete process.env.GEMINI_FALLBACK_MODEL; else process.env.GEMINI_FALLBACK_MODEL = originalEnv.fallback;
+      if (originalEnv.nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalEnv.nodeEnv;
+    }
+  });
 });

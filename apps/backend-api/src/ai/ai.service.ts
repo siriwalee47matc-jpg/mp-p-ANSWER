@@ -508,36 +508,39 @@ ${JSON.stringify(evidencePackage)}`;
 กรุณาตอบคำถามอย่างเป็นมิตร มีความเป็นมืออาชีพ และตอบเป็นภาษาไทยอย่างกระชับและสุภาพ`;
 
     if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
-      try {
-        const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
-        const apiKey = process.env.GEMINI_API_KEY.trim();
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+      const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+      const fallbackModel = process.env.GEMINI_FALLBACK_MODEL?.trim() || 'gemini-3.1-flash-lite';
+      const models = [...new Set([primaryModel, fallbackModel])];
+      const apiKey = process.env.GEMINI_API_KEY.trim();
+      const contents = this.buildGeminiChatContents(message, history);
 
-        const contents = this.buildGeminiChatContents(message, history);
+      for (const modelName of models) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            signal: AbortSignal.timeout(25000),
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              contents,
+            }),
+          });
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          signal: AbortSignal.timeout(25000),
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents
-          })
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          const reply = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (reply) return { reply };
-        } else {
-          const errText = await response.text();
-          console.error(`[AiService] Gemini Chat API returned error status ${response.status}: ${errText}`);
+          if (response.ok) {
+            const result = await response.json();
+            const reply = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (reply) return { reply };
+          } else {
+            const errText = await response.text();
+            console.error(`[AiService] Gemini Chat ${modelName} returned HTTP ${response.status}: ${errText}`);
+          }
+        } catch (error) {
+          console.error(`[AiService] Gemini Chat ${modelName} failed:`, error);
         }
-      } catch (error) {
-        console.error('[AiService] Gemini Chat API failed:', error);
       }
     } else if (provider === 'openai' && process.env.OPENAI_API_KEY) {
       try {
