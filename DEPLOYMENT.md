@@ -6,7 +6,7 @@ Sentinel ADS has two deployable services: the dashboard on Vercel and the API on
 
 1. Provision a PostgreSQL database and set `DATABASE_URL` to its connection string.
 2. Deploy `apps/backend-api` using its Dockerfile.
-3. Run `npx prisma db push` once against that production database from a trusted deployment environment. Do not run `npm run prisma:seed`; it is explicitly demo-only.
+3. The backend container runs `prisma migrate deploy` before starting the API. For an existing database created before migration tracking was introduced, follow the one-time baseline procedure below. Do not run `npm run prisma:seed`; it is explicitly demo-only.
 4. Generate a long random `JWT_SECRET` and set the API environment variables below.
 
 Required API environment variables:
@@ -26,6 +26,17 @@ GEMINI_MODEL=gemini-3.5-flash
 ```
 
 The first API start creates the initial administrator only when all three `INITIAL_ADMIN_*` values are supplied. Remove `INITIAL_ADMIN_PASSWORD` after that first successful start. Keep Gemini credentials in the API host's environment variables, never in the dashboard or a committed `.env.example` file.
+
+### One-time baseline for an existing production database
+
+The migration at `prisma/migrations/20260717000000_baseline` describes the complete initial schema. If the production tables already exist, do not execute that SQL against them. Mark the baseline as applied once from a trusted environment that has the production `DATABASE_URL`:
+
+```text
+npx prisma migrate resolve --applied 20260717000000_baseline --schema prisma/schema.prisma
+npx prisma migrate deploy --schema prisma/schema.prisma
+```
+
+New databases should run `npx prisma migrate deploy --schema prisma/schema.prisma` normally. Every later Prisma schema change must include a new committed migration; the backend will apply pending migrations before accepting traffic.
 
 ## 2. Deploy the dashboard on Vercel
 
