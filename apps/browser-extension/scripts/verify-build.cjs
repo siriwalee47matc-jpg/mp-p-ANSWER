@@ -15,6 +15,9 @@ const content = fs.readFileSync(contentPath, 'utf8');
 if (/^\s*import\s/m.test(content)) {
   throw new Error('Chrome content script must not contain ES module imports');
 }
+if (!content.includes('ผลวิเคราะห์ AI') || !content.includes('sentinel-ads-ssk.vercel.app')) {
+  throw new Error('Content script must show citizen AI alerts and skip the Sentinel dashboard');
+}
 
 const background = fs.readFileSync(backgroundPath, 'utf8');
 if (!background.includes('/risk/logs')) {
@@ -33,8 +36,11 @@ if (!popup.includes('whoisInfo') || !popup.includes('officialProductSources')) {
 }
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-if (manifest.version !== '1.0.6') {
-  throw new Error(`Expected extension version 1.0.6, received ${manifest.version}`);
+if (manifest.version !== '1.0.7') {
+  throw new Error(`Expected extension version 1.0.7, received ${manifest.version}`);
+}
+if (!manifest.content_scripts?.[0]?.exclude_matches?.includes('https://sentinel-ads-ssk.vercel.app/*')) {
+  throw new Error('Sentinel dashboard must be excluded from extension content scanning');
 }
 
 console.log('Extension build verification passed.');

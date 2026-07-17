@@ -108,8 +108,21 @@ async function syncRiskLevel() {
   }
 }
 
+const INTERNAL_SENTINEL_HOSTS = new Set([
+  'sentinel-ads-ssk.vercel.app',
+  'sentinel-ads-api.onrender.com',
+]);
+
 function shouldScanUrl(urlStr: string) {
-  return urlStr.startsWith('http://') || urlStr.startsWith('https://') || urlStr.startsWith('file://');
+  const supported = urlStr.startsWith('http://') || urlStr.startsWith('https://') || urlStr.startsWith('file://');
+  if (!supported) return false;
+
+  try {
+    const hostname = new URL(urlStr).hostname.toLowerCase();
+    return !INTERNAL_SENTINEL_HOSTS.has(hostname);
+  } catch {
+    return false;
+  }
 }
 
 function normalizeDomain(urlStr: string) {

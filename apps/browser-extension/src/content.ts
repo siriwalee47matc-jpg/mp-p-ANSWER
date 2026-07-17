@@ -1,6 +1,10 @@
 import { analyzeLocalPageSignals } from './scan-policy';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+const IS_SENTINEL_INTERNAL_PAGE = [
+  'sentinel-ads-ssk.vercel.app',
+  'sentinel-ads-api.onrender.com',
+].includes(window.location.hostname.toLowerCase());
 
 function escapeHtml(str: string): string {
   return str
@@ -40,7 +44,7 @@ let localWarningAcknowledged = false;
 let scanDebounceTimer: number | undefined;
 
 function scanPageContent() {
-  if (blockOverlayInjected || localWarningAcknowledged) return;
+  if (IS_SENTINEL_INTERNAL_PAGE || blockOverlayInjected || localWarningAcknowledged) return;
   chrome.storage.local.get(['extensionMode', 'autoScan', 'riskLevel'], (settings) => {
     const isAutoScanEnabled = settings.autoScan !== false && settings.riskLevel !== 'MANUAL';
     if (!isAutoScanEnabled) {
@@ -449,18 +453,25 @@ function classifyProductType(text: string): ProductType {
 }
 
 chrome.runtime.onMessage.addListener((message) => {
+  if (IS_SENTINEL_INTERNAL_PAGE) return;
   if (message.action === 'BLOCK_SCREEN' && !blockOverlayInjected) {
     injectBlockOverlay(message.reason);
   } else if (message.action === 'SCAN_RESULT' && !blockOverlayInjected) {
+    const score = Number(message.score) || 0;
+    if (score >= 50 && !warningBannerInjected) {
+      injectWarningBanner([`ผลวิเคราะห์ AI ${Math.round(score)}%`]);
+    }
     injectAiResultAlert(message);
   }
 });
 
-checkDomainBlockedOnLoad();
+if (!IS_SENTINEL_INTERNAL_PAGE) {
+  checkDomainBlockedOnLoad();
 
-const pageObserver = new MutationObserver(() => {
-  if (blockOverlayInjected || localWarningAcknowledged) return;
-  window.clearTimeout(scanDebounceTimer);
-  scanDebounceTimer = window.setTimeout(scanPageContent, 600);
-});
-pageObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  const pageObserver = new MutationObserver(() => {
+    if (blockOverlayInjected || localWarningAcknowledged) return;
+    window.clearTimeout(scanDebounceTimer);
+    scanDebounceTimer = window.setTimeout(scanPageContent, 600);
+  });
+  pageObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+}
