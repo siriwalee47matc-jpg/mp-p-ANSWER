@@ -33,6 +33,21 @@ describe('AiService', () => {
     expect(service).toBeDefined();
   });
 
+  it('uses a stable fallback model for case analysis when none is configured', () => {
+    const originalFallback = process.env.GEMINI_FALLBACK_MODEL;
+    delete process.env.GEMINI_FALLBACK_MODEL;
+
+    try {
+      expect(service['getGeminiModelCandidates']()).toEqual([
+        process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+        'gemini-3.1-flash-lite',
+      ]);
+    } finally {
+      if (originalFallback === undefined) delete process.env.GEMINI_FALLBACK_MODEL;
+      else process.env.GEMINI_FALLBACK_MODEL = originalFallback;
+    }
+  });
+
   it('should calibrate assessment correctly', () => {
     const rawAssessment = {
       aiRiskScore: 90,

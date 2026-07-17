@@ -26,6 +26,12 @@ type ModelAssessment = {
 export class AiService {
   constructor(private readonly casesService: CasesService) {}
 
+  private getGeminiModelCandidates() {
+    const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL?.trim() || 'gemini-3.1-flash-lite';
+    return primaryModel === fallbackModel ? [primaryModel] : [primaryModel, fallbackModel];
+  }
+
   /**
    * Evaluates a case using AI analysis and returns the updated case.
    * Builds baseline evidence (WHOIS, OCR, keyword and license signals), then requires
@@ -46,11 +52,7 @@ export class AiService {
 
     if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
       const prompt = this.buildEvidencePrompt(analysisResult);
-      const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
-      const fallbackModel = process.env.GEMINI_FALLBACK_MODEL?.trim();
-      const models = fallbackModel && primaryModel !== fallbackModel
-        ? [primaryModel, fallbackModel]
-        : [primaryModel];
+      const models = this.getGeminiModelCandidates();
 
       for (const [index, modelName] of models.entries()) {
         try {
@@ -525,9 +527,7 @@ ${JSON.stringify(evidencePackage)}`;
 กรุณาตอบคำถามอย่างเป็นมิตร มีความเป็นมืออาชีพ และตอบเป็นภาษาไทยอย่างกระชับและสุภาพ`;
 
     if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
-      const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
-      const fallbackModel = process.env.GEMINI_FALLBACK_MODEL?.trim() || 'gemini-3.1-flash-lite';
-      const models = [...new Set([primaryModel, fallbackModel])];
+      const models = this.getGeminiModelCandidates();
       const apiKey = process.env.GEMINI_API_KEY.trim();
       const contents = this.buildGeminiChatContents(message, history);
 
