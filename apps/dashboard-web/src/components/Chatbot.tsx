@@ -33,9 +33,13 @@ export default function Chatbot() {
     setLoading(true);
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(apiUrl('/ai/chat'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ message: question, history: messages.slice(-12) }),
       });
       if (response.ok) {
