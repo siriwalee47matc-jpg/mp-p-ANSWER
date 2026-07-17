@@ -226,6 +226,28 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   });
 });
 
+async function sendMessageToTab(tabId: number, message: Record<string, unknown>) {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return true;
+  } catch (firstError) {
+    try {
+      // Existing tabs do not receive a newly installed/updated manifest content
+      // script until they reload. Inject it on demand so a completed scan can
+      // still display its in-page warning immediately.
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['assets/content.js'],
+      });
+      await chrome.tabs.sendMessage(tabId, message);
+      return true;
+    } catch (retryError) {
+      console.log('Failed to deliver message to tab:', firstError, retryError);
+      return false;
+    }
+  }
+}
+
 async function checkAndBlockTab(tabId: number, urlStr: string) {
   try {
     const domain = normalizeDomain(urlStr);
@@ -245,14 +267,10 @@ async function checkAndBlockTab(tabId: number, urlStr: string) {
     const blockReason = blockedInfo?.reason || activeProtection?.reason;
     if (blockReason) {
       setTimeout(() => {
-        chrome.tabs
-          .sendMessage(tabId, {
-            action: 'BLOCK_SCREEN',
-            reason: blockReason,
-          })
-          .catch((err) => {
-            console.log('Failed to notify tab, likely not injected yet:', err);
-          });
+        void sendMessageToTab(tabId, {
+          action: 'BLOCK_SCREEN',
+          reason: blockReason,
+        });
       }, 500);
     }
   } catch {
@@ -406,6 +424,11 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
       legalSignals: blockDecision.legalSignals,
       localSignals: localSignals.claimSignals,
       allowlist: allowlistEntry?.action || null,
+      whoisInfo: aiResult.whoisInfo || null,
+      officialProductSources: aiResult.officialProductSources || [],
+      matchingRules: aiResult.matchingRules || [],
+      licenseStatus: aiResult.licenseStatus || null,
+      productLicenseNumber: aiResult.productLicenseNumber || null,
       scanDurationMs: Date.now() - now,
     };
 
@@ -418,6 +441,8 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
     });
 
     if (blockDecision.notify) {
+      await chrome.action.setBadgeBackgroundColor({ tabId, color: '#dc2626' });
+      await chrome.action.setBadgeText({ tabId, text: String(Math.round(score)) });
       chrome.notifications.create(caseData.id, {
         type: 'basic',
         iconUrl: 'logo.png',
@@ -452,18 +477,16 @@ async function runAutoScanForTab(activeTab: chrome.tabs.Tab) {
           [hostname]: { score, reason, caseId: caseData.id, expiresAt: Date.now() + 12 * 60 * 60 * 1000 },
         },
       });
-      chrome.tabs.sendMessage(tabId, { action: 'BLOCK_SCREEN', reason }).catch((err) => {
-        console.log('Failed to show protective block screen:', err);
-      });
+      await sendMessageToTab(tabId, { action: 'BLOCK_SCREEN', reason });
     } else if (blockDecision.notify) {
-      chrome.tabs
-        .sendMessage(tabId, {
-          action: 'SCAN_RESULT',
-          score,
-          analysis: aiResult.aiAnalysis,
-          recommendedAction: blockDecision.recommendedAction,
-        })
-        .catch((err) => console.log('Failed to show in-page AI alert:', err));
+      await sendMessageToTab(tabId, {
+        action: 'SCAN_RESULT',
+        score,
+        analysis: aiResult.aiAnalysis,
+        recommendedAction: blockDecision.recommendedAction,
+      });
+    } else {
+      await chrome.action.setBadgeText({ tabId, text: '' });
     }
 
     if (blockDecision.serverBlockEligible && canAuthorizeBlock) {

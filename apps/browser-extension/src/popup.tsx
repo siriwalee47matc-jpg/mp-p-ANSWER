@@ -284,7 +284,11 @@ function Popup() {
                 aiModel: currentTabLog.aiModel,
                 url: currentTabLog.url,
                 productType: currentTabLog.productType || ProductType.FOOD,
-                matchingRules: []
+                productLicenseNumber: currentTabLog.productLicenseNumber,
+                licenseStatus: currentTabLog.licenseStatus,
+                whoisInfo: currentTabLog.whoisInfo,
+                officialProductSources: currentTabLog.officialProductSources || [],
+                matchingRules: currentTabLog.matchingRules || [],
               });
               setDismissedNotification(false);
             }
@@ -598,7 +602,15 @@ function Popup() {
 
   const licenseMeta = getLicenseStatusMeta(aiAnalysisResult?.licenseStatus);
   const riskThemeClass = getRiskThemeClass(aiAnalysisResult?.aiRiskScore || 0);
-  const investigation = aiAnalysisResult?.whoisInfo || null;
+  const investigation = (() => {
+    const value = aiAnalysisResult?.whoisInfo;
+    if (!value || typeof value !== 'string') return value || null;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  })();
   const domainRdap = investigation?.domainRdap || null;
   const ipRdap = investigation?.ipRdap || null;
   const dnsInfo = investigation?.dns || null;
@@ -1039,27 +1051,27 @@ function Popup() {
             <div className="osint-grid">
               <div className="osint-item">
                 <span className="info-label">หมายเลขไอพี:</span>
-                <div className="osint-val">{dnsInfo?.aRecords?.[0] || dnsInfo?.aaaaRecords?.[0] || 'N/A'}</div>
+                <div className="osint-val">{dnsInfo?.aRecords?.[0] || dnsInfo?.aaaaRecords?.[0] || 'ไม่พบข้อมูล DNS'}</div>
               </div>
               <div className="osint-item">
                 <span className="info-label">เครือข่ายผู้ให้บริการ:</span>
-                <div className="osint-val">{ipRdap?.networkName || ipRdap?.handle || 'N/A'}</div>
+                <div className="osint-val">{ipRdap?.networkName || ipRdap?.handle || 'ไม่เปิดเผยโดยผู้ให้บริการ'}</div>
               </div>
               <div className="osint-item">
                 <span className="info-label">เจ้าของจดทะเบียน:</span>
-                <div className="osint-val">{domainRdap?.registrant || domainRdap?.handle || 'N/A'}</div>
+                <div className="osint-val">{domainRdap?.registrant || domainRdap?.handle || domainRdap?.registrar || 'ไม่เปิดเผยโดย Registry'}</div>
               </div>
               <div className="osint-item">
                 <span className="info-label">วันจดทะเบียน:</span>
-                <div className="osint-val">{domainRdap?.createdAt || 'N/A'}</div>
+                <div className="osint-val">{domainRdap?.createdAt || 'ไม่พบข้อมูล'}</div>
               </div>
               <div className="osint-item" style={{ gridColumn: 'span 2' }}>
                 <span className="info-label">อีเมลติดต่อกลับ:</span>
-                <div className="osint-val">{domainRdap?.abuseEmail || 'N/A'}</div>
+                <div className="osint-val">{domainRdap?.abuseEmail || 'ไม่เปิดเผยโดย Registry'}</div>
               </div>
               <div className="osint-item" style={{ gridColumn: 'span 2' }}>
                 <span className="info-label">แหล่งข้อมูลทะเบียน:</span>
-                <div className="osint-val">{domainRdap?.rdapServer || ipRdap?.source || 'N/A'}</div>
+                <div className="osint-val">{domainRdap?.rdapServer || ipRdap?.source || 'ไม่พบแหล่งข้อมูล RDAP'}</div>
               </div>
             </div>
           </div>
