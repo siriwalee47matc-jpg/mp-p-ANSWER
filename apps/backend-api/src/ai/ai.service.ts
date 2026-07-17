@@ -496,6 +496,23 @@ ${JSON.stringify(evidencePackage)}`;
     return contents;
   }
 
+  private buildChatGuideReply(message: string) {
+    const text = message.toLowerCase();
+    if (text.includes('ความเสี่ยง') || text.includes('risk')) {
+      return 'ระบบประเมินจากข้อความและภาพโฆษณา ประเภทผลิตภัณฑ์ เลข อย. สัญญาณการอวดอ้าง แหล่งข้อมูลเปิด และข้อกฎหมายที่เกี่ยวข้อง โดยคะแนนตั้งแต่ 50% จะแจ้งเตือนให้ตรวจสอบ และตั้งแต่ 80% ถือเป็นความเสี่ยงสูง ทั้งนี้เจ้าหน้าที่ต้องยืนยันหลักฐานก่อนดำเนินการทางกฎหมาย';
+    }
+    if (text.includes('คดี') || text.includes('ตรวจสอบ')) {
+      return 'เริ่มจากรายการคดีที่มีคะแนนความเสี่ยงสูง ตรวจข้อความและภาพหลักฐาน เลข อย. ข้อมูลทะเบียนโดเมน และข้อกฎหมายที่ระบบแนะนำ จากนั้นส่งให้นิติกรหรือผู้ทบทวนยืนยันก่อนอนุมัติ ปิดกั้น หรือยกเลิกคดี';
+    }
+    if (text.includes('block') || text.includes('บล็อก') || text.includes('ปิดกั้น')) {
+      return 'โหมดตรวจจับอัตโนมัติจะแจ้งเตือนและบันทึกคดีโดยไม่ปิดกั้น ส่วนการปิดกั้นอัตโนมัติใช้เฉพาะกรณีคะแนนสูง มีหลักฐานตรง มีข้อมูล AI/OSINT ที่เชื่อถือได้ และไม่อยู่ในรายการยกเว้น';
+    }
+    if (text.includes('สวัสดี') || text.includes('hello') || text.includes('hi')) {
+      return 'สวัสดีครับ ผมช่วยอธิบายการประเมินความเสี่ยง การตรวจสอบคดี การแจ้งเบาะแส และโหมดปิดกั้นของ Sentinel ADS ได้ครับ';
+    }
+    return 'ขณะนี้สามารถสอบถามเรื่องการประเมินโฆษณาสุขภาพ การตรวจหลักฐาน การจัดการคดี การแจ้งเบาะแส และการตั้งค่าโหมดตรวจจับหรือปิดกั้นได้ครับ';
+  }
+
   async chat(message: string, history: any[] = []): Promise<{ reply: string }> {
     const provider = process.env.AI_PROVIDER;
     const systemPrompt = `คุณคือผู้ช่วยระบบอัจฉริยะ (AI Assistant) ของระบบ Sentinel ADS (ระบบบล็อกโฆษณาด้านสุขภาพที่ผิดกฎหมายของจังหวัดศรีสะเกษ)
@@ -607,23 +624,12 @@ ${JSON.stringify(evidencePackage)}`;
 
     if (process.env.NODE_ENV === 'production') {
       console.error('[AiService] Gemini chat is not configured or did not return a response.');
-      throw new ServiceUnavailableException(
-        'ผู้ช่วยอัจฉริยะยังไม่พร้อมใช้งาน กรุณาตรวจสอบการตั้งค่า Gemini ของระบบหลังบ้าน',
-      );
+      return {
+        reply: `คำตอบจากคู่มือ Sentinel ADS (Gemini ไม่พร้อมชั่วคราว): ${this.buildChatGuideReply(message)}`,
+      };
     }
 
-    // Local-development fallback only. Production must never present canned answers as AI output.
-    const text = message.toLowerCase();
-    let reply = '[DEV FALLBACK] ผมช่วยอธิบายการตรวจโฆษณา การจัดการคดี และการตั้งค่าความเสี่ยงได้ ลองพิมพ์ถามใหม่ได้เลยครับ';
-    if (text.includes('ความเสี่ยง') || text.includes('risk')) {
-      reply = '[DEV FALLBACK] ระบบประเมินจากเนื้อหาโฆษณา ประเภทผลิตภัณฑ์ เลข อย. แหล่งที่มา และสัญญาณทางกฎหมาย จากนั้นจัดระดับเป็นตรวจสอบโดยเจ้าหน้าที่ ตรวจจับอัตโนมัติ หรือปิดกั้นอัตโนมัติ';
-    } else if (text.includes('คดี') || text.includes('ตรวจสอบ')) {
-      reply = '[DEV FALLBACK] เริ่มจากหน้าคดี เลือกคดีที่มีคะแนนความเสี่ยงสูง ตรวจหลักฐานและแหล่งข้อมูลทางการ แล้วส่งต่อให้นิติกรยืนยันข้อกฎหมายก่อนดำเนินการ';
-    } else if (text.includes('block') || text.includes('บล็อก')) {
-      reply = '[DEV FALLBACK] การปิดกั้นอัตโนมัติใช้กับสัญญาณความเสี่ยงสูงที่ผ่านเงื่อนไขความมั่นใจและรายการยกเว้นเท่านั้น ควรเริ่มจากการตรวจจับอัตโนมัติเพื่อปรับเกณฑ์ให้เหมาะกับหน่วยงาน';
-    } else if (text.includes('สวัสดี') || text.includes('hello') || text.includes('hi')) {
-      reply = '[DEV FALLBACK] สวัสดีครับ ผมคือผู้ช่วยอัจฉริยะ Sentinel ADS ระบบเบื้องหลังออนไลน์ปกติและสามารถคุยกับผมได้แล้วครับ!';
-    }
-    return { reply };
+    // Local development uses the same guide with an explicit development label.
+    return { reply: `[DEV FALLBACK] ${this.buildChatGuideReply(message)}` };
   }
 }

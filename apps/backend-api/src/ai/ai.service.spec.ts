@@ -120,4 +120,20 @@ describe('AiService', () => {
       if (originalEnv.nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalEnv.nodeEnv;
     }
   });
+
+  it('returns a clearly labelled system guide when production AI is unavailable', async () => {
+    const originalProvider = process.env.AI_PROVIDER;
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.AI_PROVIDER = 'unavailable';
+    process.env.NODE_ENV = 'production';
+
+    try {
+      const result = await service.chat('ระบบประเมินความเสี่ยงอย่างไร', []);
+      expect(result.reply).toContain('คำตอบจากคู่มือ Sentinel ADS');
+      expect(result.reply).toContain('คะแนนตั้งแต่ 50%');
+    } finally {
+      if (originalProvider === undefined) delete process.env.AI_PROVIDER; else process.env.AI_PROVIDER = originalProvider;
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
 });
