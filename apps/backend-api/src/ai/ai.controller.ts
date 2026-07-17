@@ -6,8 +6,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
 
 /**
- * Exposes AI evaluation endpoint and Chatbot assistant.
- * All endpoints require authentication to prevent unauthorized AI API usage.
+ * Exposes AI evaluation endpoint and the public Chatbot assistant.
+ * Case evaluation remains authenticated because it can mutate case data.
  */
 @Controller('ai')
 export class AiController {
@@ -21,8 +21,6 @@ export class AiController {
   }
 
   @Post('chat')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   async chat(@Body() chatDto: ChatDto) {
     return this.aiService.chat(chatDto.message, chatDto.history);
   }
