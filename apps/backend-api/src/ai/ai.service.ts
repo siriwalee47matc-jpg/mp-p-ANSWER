@@ -465,6 +465,37 @@ ${JSON.stringify(evidencePackage)}`;
   /**
    * AI Chat capability for the dashboard assistant.
    */
+  private buildGeminiChatContents(message: string, history: any[]) {
+    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+    for (const item of history.slice(-12)) {
+      const text = typeof item?.text === 'string' ? item.text.trim() : '';
+      if (!text) continue;
+
+      const role: 'user' | 'model' = item.role === 'assistant' ? 'model' : 'user';
+      // Gemini multi-turn conversations must begin with a user turn. The UI's
+      // local welcome message is assistant-only context and must not be sent.
+      if (contents.length === 0 && role === 'model') continue;
+
+      const previous = contents[contents.length - 1];
+      if (previous?.role === role) {
+        previous.parts[0].text += `\n${text}`;
+      } else {
+        contents.push({ role, parts: [{ text }] });
+      }
+    }
+
+    const currentMessage = message.trim();
+    const previous = contents[contents.length - 1];
+    if (previous?.role === 'user') {
+      previous.parts[0].text += `\n${currentMessage}`;
+    } else {
+      contents.push({ role: 'user', parts: [{ text: currentMessage }] });
+    }
+
+    return contents;
+  }
+
   async chat(message: string, history: any[] = []): Promise<{ reply: string }> {
     const provider = process.env.AI_PROVIDER;
     const systemPrompt = `คุณคือผู้ช่วยระบบอัจฉริยะ (AI Assistant) ของระบบ Sentinel ADS (ระบบบล็อกโฆษณาด้านสุขภาพที่ผิดกฎหมายของจังหวัดศรีสะเกษ)
@@ -482,11 +513,7 @@ ${JSON.stringify(evidencePackage)}`;
         const apiKey = process.env.GEMINI_API_KEY.trim();
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-        const contents = history.map(h => ({
-          role: h.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: h.text }]
-        }));
-        contents.push({ role: 'user', parts: [{ text: message }] });
+        const contents = this.buildGeminiChatContents(message, history);
 
         const response = await fetch(url, {
           method: 'POST',

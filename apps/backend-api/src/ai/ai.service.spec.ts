@@ -61,4 +61,28 @@ describe('AiService', () => {
     
     process.env.NODE_ENV = originalEnv;
   });
+
+  it('normalizes Gemini chat history to begin with a user and alternate roles', () => {
+    const contents = service['buildGeminiChatContents']('คำถามที่สอง', [
+      { role: 'assistant', text: 'ข้อความต้อนรับในหน้าเว็บ' },
+      { role: 'user', text: 'คำถามแรก' },
+      { role: 'assistant', text: 'คำตอบแรก' },
+    ]);
+
+    expect(contents).toEqual([
+      { role: 'user', parts: [{ text: 'คำถามแรก' }] },
+      { role: 'model', parts: [{ text: 'คำตอบแรก' }] },
+      { role: 'user', parts: [{ text: 'คำถามที่สอง' }] },
+    ]);
+  });
+
+  it('drops an assistant-only welcome message before the first question', () => {
+    const contents = service['buildGeminiChatContents']('ระบบประเมินความเสี่ยงอย่างไร', [
+      { role: 'assistant', text: 'สวัสดีครับ ผมคือผู้ช่วย Sentinel ADS' },
+    ]);
+
+    expect(contents).toEqual([
+      { role: 'user', parts: [{ text: 'ระบบประเมินความเสี่ยงอย่างไร' }] },
+    ]);
+  });
 });
