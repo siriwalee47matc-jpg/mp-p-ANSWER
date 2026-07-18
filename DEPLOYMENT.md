@@ -1,0 +1,94 @@
+# Production deployment
+
+Sentinel ADS has two deployable services: the dashboard on Vercel and the API on Render with PostgreSQL. Do not deploy the NestJS API on Vercel: serverless storage and request lifecycles are not appropriate for persistent case records or AI processing.
+
+## 1. Create production services
+
+1. Provision a PostgreSQL database and set `DATABASE_URL` to its connection string.
+2. Deploy `apps/backend-api` using its Dockerfile.
+3. The backend container runs `prisma migrate deploy` before starting the API. For an existing database created before migration tracking was introduced, follow the one-time baseline procedure below. Do not run `npm run prisma:seed`; it is explicitly demo-only.
+4. Generate a long random `JWT_SECRET` and set the API environment variables below.
+
+Required API environment variables:
+
+```text
+NODE_ENV=production
+PORT=3001
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/sentinel_ads?schema=public
+JWT_SECRET=<at-least-32-random-characters>
+CORS_ORIGINS=https://YOUR-SITE.netlify.app,https://YOUR-DOMAIN
+INITIAL_ADMIN_EMAIL=admin@your-agency.go.th
+INITIAL_ADMIN_NAME=System Administrator
+INITIAL_ADMIN_PASSWORD=<unique-password-of-at-least-8-characters>
+AI_PROVIDER=gemini
+GEMINI_API_KEY=<your-gemini-api-key>
+GEMINI_MODEL=gemini-3.5-flash
+```
+
+The first API start creates the initial administrator only when all three `INITIAL_ADMIN_*` values are supplied. Remove `INITIAL_ADMIN_PASSWORD` after that first successful start. Keep Gemini credentials in the API host's environment variables, never in the dashboard or a committed `.env.example` file.
+
+### One-time baseline for an existing production database
+
+The migration at `prisma/migrations/20260717000000_baseline` describes the complete initial schema. If the production tables already exist, do not execute that SQL against them. Mark the baseline as applied once from a trusted environment that has the production `DATABASE_URL`:
+
+```text
+npx prisma migrate resolve --applied 20260717000000_baseline --schema prisma/schema.prisma
+npx prisma migrate deploy --schema prisma/schema.prisma
+```
+
+New databases should run `npx prisma migrate deploy --schema prisma/schema.prisma` normally. Every later Prisma schema change must include a new committed migration; the backend will apply pending migrations before accepting traffic.
+
+## 2. Deploy the dashboard on Vercel
+
+1. Import this repository in Vercel and configure the project root directory as `apps/dashboard-web`.
+2. Set the Vercel build command to `npm run build`.
+3. Add `NEXT_PUBLIC_API_URL=https://sentinel-ads-api.onrender.com`.
+4. Optionally add `NEXT_PUBLIC_CHROME_WEB_STORE_URL` after the extension is published to Chrome Web Store.
+5. Deploy. Add the resulting Vercel domain to the API's `CORS_ORIGINS` value, then redeploy the API.
+
+The release ZIP is committed at `apps/dashboard-web/public/downloads/sentinel-ads-extension.zip` so Vercel can serve it without installing the Extension build toolchain. Run `npm run package:extension` and commit the resulting ZIP whenever the Extension changes. Before a Chrome Web Store URL exists, the landing page downloads that ZIP and gives manual installation instructions.
+
+## 3. Build the browser extension
+
+The extension is not installed by Netlify. Build it with production endpoints, package the `apps/browser-extension/dist` directory, and distribute it through your approved enterprise browser policy or extension store.
+
+```text
+VITE_API_URL=https://YOUR-API-DOMAIN
+VITE_DASHBOARD_URL=https://sentinel-ads-ssk.vercel.app
+npm run build:extension
+```
+
+Before releasing, set a unique extension ID policy and add its origin to the API CORS allow-list if your host requires it. For one-click installation, upload the generated ZIP to Chrome Web Store and set `NEXT_PUBLIC_CHROME_WEB_STORE_URL` to the published listing URL in Vercel.
+
+## Operational guardrails
+
+- Use a real AI provider and monitor false-positive/false-negative outcomes before enabling `AUTO_BLOCK`.
+- Keep `AUTO_DETECT` as the starting production mode; blocking must retain a human review route.
+- Protect database backups, rotate credentials, and set an alerting mailbox before go-live.
+- The API must run behind HTTPS. Never store API keys or production passwords in repository files.
+- The chatbot only returns provider answers in production. If Gemini is not configured or fails, it returns a visible service error instead of a canned answer. Check Render logs and confirm `AI_PROVIDER`, `GEMINI_API_KEY`, and `GEMINI_MODEL` are configured before release.
+
+## Release verification
+
+Use Node.js 20 and npm 10.9.4. Every release candidate must pass the following commands from the repository root:
+
+```text
+npm ci
+npm run prisma:validate
+npm run lint
+npm run test:coverage
+npm run build
+npm run audit:prod
+```
+
+After deploying both services, run the read-only production checks:
+
+```text
+npm run smoke:production
+```
+
+The smoke test verifies public availability, security headers, protected-route authentication, and allowed/rejected CORS preflights. It does not create or modify production records.
+
+### Temporary dependency exception
+
+Next.js 16.2.10 currently pins PostCSS 8.4.31, which causes `npm audit` to report two moderate findings for GHSA-qx2v-qp2m-jg93. The release gate rejects high and critical findings. Do not use `npm audit fix --force`, because npm proposes an incompatible Next.js downgrade. Upgrade to the first stable Next.js release that includes PostCSS 8.5.10 or newer, then remove this exception.

@@ -1,0 +1,14 @@
+node_modules
+.next/
+dist/
+coverage/
+*.db
+*.db-journal
+.env
+.env.local
+.env.*.local
+*.zip
+!apps/dashboard-web/public/downloads/sentinel-ads-extension.zip
+.DS_Store
+.turbo/
+*.traineddata

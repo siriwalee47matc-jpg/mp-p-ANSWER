@@ -1,0 +1,15 @@
+{
+  "name": "@kp-ads/shared",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.3"
+  }
+}

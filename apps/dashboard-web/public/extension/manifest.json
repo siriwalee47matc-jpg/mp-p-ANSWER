@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "SENTINEL ADs ssk",
+  "version": "1.0.0",
+  "description": "เฝ้าระวังภัยโฆษณาเกินจริง (Ad Shield) สำหรับประชาชน และเครื่องมือสืบหาหลักฐานคดีโฆษณาสุขภาพผิดกฎหมายสำหรับเจ้าหน้าที่",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "scripting",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "http://localhost:3001/*",
+    "<all_urls>"
+  ],
+  "icons": {
+    "16": "logo.png",
+    "32": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Sentinel ADS Control",
+    "default_icon": {
+      "16": "logo.png",
+      "32": "logo.png",
+      "48": "logo.png",
+      "128": "logo.png"
+    }
+  },
+  "background": {
+    "service_worker": "assets/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["assets/content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

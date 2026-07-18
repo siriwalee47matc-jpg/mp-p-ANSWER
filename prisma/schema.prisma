@@ -1,0 +1,128 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  email          String          @unique
+  passwordHash   String
+  name           String
+  role           String
+  casesCreated   Case[]          @relation("CaseReporter")
+  auditLogs      AuditLog[]
+  blockedDomains BlockedDomain[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LawRule {
+  id             Int      @id @default(autoincrement())
+  section        String   @unique
+  lawName        String
+  description    String
+  riskLevel      String
+  casesConfirmed Case[]   @relation("CaseLaws")
+  createdAt      DateTime @default(now())
+}
+
+model BlockedDomain {
+  id            Int      @id @default(autoincrement())
+  domain        String   @unique
+  reason        String
+  blockedAt     DateTime @default(now())
+  addedByUserId Int?
+  user          User?    @relation(fields: [addedByUserId], references: [id])
+}
+
+model GlobalConfig {
+  id        Int    @id @default(autoincrement())
+  riskLevel String @default("MANUAL") // MANUAL, AUTO_DETECT, AUTO_BLOCK
+}
+
+model DomainAllowlist {
+  id        Int      @id @default(autoincrement())
+  domain    String   @unique
+  listType  String
+  action    String
+  reason    String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Enums removed; using string literals for risk levels and block status
+
+model Case {
+  id                    String     @id
+  title                 String
+  url                   String
+  domain                String
+  productType           String
+  productLicenseNumber  String?
+  licenseStatus         String?
+  whoisInfo             String?
+  aiRiskScore           Float?
+  aiAnalysis            String?
+  aiConfidence          Float?
+  aiEvidenceQuotes      String? // JSON array of verified evidence quotes
+  aiViolationCategories String? // JSON array of violation categories
+  aiSource              String? // GEMINI | OPENAI | ANTHROPIC | RULE_BASED_FALLBACK
+  aiModelName           String? // e.g. gemini-3.5-flash
+  evidenceImage         String?
+  evidenceText          String?
+  status                String     @default("PENDING")
+  reporterRole          String
+  reporterId            Int?
+  reporter              User?      @relation("CaseReporter", fields: [reporterId], references: [id])
+  lawRulesConfirmed     LawRule[]  @relation("CaseLaws")
+  auditLogs             AuditLog[]
+  blockLogs             BlockLog[]
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+}
+
+model BlockLog {
+  id        Int      @id @default(autoincrement())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id])
+  blockedAt DateTime @default(now())
+  reason    String?
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  caseId    String?
+  case      Case?    @relation(fields: [caseId], references: [id])
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model PlatformMetric {
+  key       String   @id
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model ExtensionInstall {
+  id        String   @id
+  version   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  rating    Int // 1-5
+  comment   String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}

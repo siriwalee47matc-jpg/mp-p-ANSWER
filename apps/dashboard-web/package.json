@@ -1,0 +1,28 @@
+{
+  "name": "dashboard-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "npm run build --workspace=@kp-ads/shared && node ../../scripts/package-extension.cjs && next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit --incremental false",
+    "lint": "npm run typecheck",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage.enabled=true"
+  },
+  "dependencies": {
+    "@kp-ads/shared": "*",
+    "next": "16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.15.12",
+    "@types/node": "^20.11.30",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "archiver": "^8.0.0",
+    "typescript": "^5.4.3"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "name": "kp-health-ads-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo for illegal health advertisement surveillance system",
+  "packageManager": "npm@10.9.4",
+  "engines": {
+    "node": ">=20 <25",
+    "npm": ">=10 <11"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build:shared && npm run build:backend && npm run build:extension && npm run build:dashboard",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:backend": "npm run build --workspace=apps/backend-api",
+    "build:dashboard": "npm run build --workspace=apps/dashboard-web",
+    "dev:backend": "npm run dev --workspace=apps/backend-api",
+    "dev:dashboard": "npm run dev --workspace=apps/dashboard-web",
+    "dev:extension": "npm run dev --workspace=apps/browser-extension",
+    "build:extension": "npm run build --workspace=apps/browser-extension",
+    "package:extension": "node scripts/package-extension.cjs",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspace=apps/backend-api && npm run test --workspace=apps/dashboard-web && npm run test --workspace=apps/browser-extension",
+    "test:coverage": "npm run test:coverage --workspace=apps/backend-api && npm run test:coverage --workspace=apps/dashboard-web && npm run test:coverage --workspace=apps/browser-extension",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "smoke:production": "node scripts/smoke-production.mjs",
+    "verify": "npm run prisma:validate && npm run lint && npm run test && npm run build && npm run audit:prod",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "node scripts/prisma-validate.cjs",
+    "prisma:push": "node scripts/prisma-push.cjs",
+    "prisma:seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.12.1"
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.1.28",
+    "@nestjs/core": "^11.1.28",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/platform-express": "^11.1.28",
+    "@nestjs/schedule": "^6.1.3",
+    "@nestjs/testing": "^11.1.28",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.11.30",
+    "@vitest/coverage-v8": "^4.1.10",
+    "archiver": "^8.0.0",
+    "jest": "^30.4.2",
+    "prisma": "^5.12.1",
+    "ts-jest": "^29.4.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.3",
+    "vite": "6.4.3",
+    "vitest": "^4.1.10"
+  }
+}
