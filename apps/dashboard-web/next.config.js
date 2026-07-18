@@ -3,10 +3,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const apiOrigin = (() => {
   try {
-    const fallback = isProduction ? 'https://sentinel-ads-api.onrender.com' : 'http://localhost:3001';
+    const fallback = isProduction ? 'https://mp-p-answer-custom-backend.vercel.app' : 'http://localhost:3001';
     return new URL(process.env.NEXT_PUBLIC_API_URL || fallback).origin;
   } catch {
-    return 'https://sentinel-ads-api.onrender.com';
+    return 'https://mp-p-answer-custom-backend.vercel.app';
   }
 })();
 

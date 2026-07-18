@@ -1,7 +1,7 @@
 import { isOriginAllowed } from './origin-policy';
 
 const productionPolicy = {
-  allowedOrigins: ['https://sentinel-ads-ssk.vercel.app'],
+  allowedOrigins: ['https://mp-p-answer-custom-dashboard.vercel.app'],
   isProduction: true,
 };
 
@@ -11,7 +11,7 @@ describe('isOriginAllowed', () => {
   });
 
   it('allows the configured dashboard and Chrome extensions', () => {
-    expect(isOriginAllowed('https://sentinel-ads-ssk.vercel.app', productionPolicy)).toBe(true);
+    expect(isOriginAllowed('https://mp-p-answer-custom-dashboard.vercel.app', productionPolicy)).toBe(true);
     expect(isOriginAllowed('chrome-extension://abcdefghijklmnop', productionPolicy)).toBe(true);
   });
 

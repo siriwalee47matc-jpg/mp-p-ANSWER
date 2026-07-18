@@ -40,7 +40,7 @@ async function bootstrap() {
 
   const isProduction = process.env.NODE_ENV === 'production';
   const allowedOrigins = Array.from(new Set([
-    'https://sentinel-ads-ssk.vercel.app',
+    'https://mp-p-answer-custom-dashboard.vercel.app',
     ...(!isProduction ? ['http://localhost:3000'] : []),
     ...(process.env.CORS_ORIGINS || '').split(','),
   ]

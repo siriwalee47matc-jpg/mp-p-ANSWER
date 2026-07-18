@@ -109,8 +109,8 @@ async function syncRiskLevel() {
 }
 
 const INTERNAL_SENTINEL_HOSTS = new Set([
-  'sentinel-ads-ssk.vercel.app',
-  'sentinel-ads-api.onrender.com',
+  'mp-p-answer-custom-dashboard.vercel.app',
+  'mp-p-answer-custom-backend.vercel.app',
 ]);
 
 function shouldScanUrl(urlStr: string) {

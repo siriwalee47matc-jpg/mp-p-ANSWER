@@ -1,5 +1,5 @@
-const dashboardUrl = (process.env.DASHBOARD_URL || 'https://sentinel-ads-ssk.vercel.app').replace(/\/$/, '');
-const apiUrl = (process.env.API_URL || 'https://sentinel-ads-api.onrender.com').replace(/\/$/, '');
+const dashboardUrl = (process.env.DASHBOARD_URL || 'https://mp-p-answer-custom-dashboard.vercel.app').replace(/\/$/, '');
+const apiUrl = (process.env.API_URL || 'https://mp-p-answer-custom-backend.vercel.app').replace(/\/$/, '');
 
 const checks = [];
 

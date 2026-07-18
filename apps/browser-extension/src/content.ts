@@ -2,8 +2,8 @@ import { analyzeLocalPageSignals } from './scan-policy';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 const IS_SENTINEL_INTERNAL_PAGE = [
-  'sentinel-ads-ssk.vercel.app',
-  'sentinel-ads-api.onrender.com',
+  'mp-p-answer-custom-dashboard.vercel.app',
+  'mp-p-answer-custom-backend.vercel.app',
 ].includes(window.location.hostname.toLowerCase());
 
 function escapeHtml(str: string): string {

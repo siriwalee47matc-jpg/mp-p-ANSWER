@@ -42,7 +42,7 @@ New databases should run `npx prisma migrate deploy --schema prisma/schema.prism
 
 1. Import this repository in Vercel and configure the project root directory as `apps/dashboard-web`.
 2. Set the Vercel build command to `npm run build`.
-3. Add `NEXT_PUBLIC_API_URL=https://sentinel-ads-api.onrender.com`.
+3. Add `NEXT_PUBLIC_API_URL=https://mp-p-answer-custom-backend.vercel.app`.
 4. Optionally add `NEXT_PUBLIC_CHROME_WEB_STORE_URL` after the extension is published to Chrome Web Store.
 5. Deploy. Add the resulting Vercel domain to the API's `CORS_ORIGINS` value, then redeploy the API.
 
@@ -54,7 +54,7 @@ The extension is not installed by Netlify. Build it with production endpoints, p
 
 ```text
 VITE_API_URL=https://YOUR-API-DOMAIN
-VITE_DASHBOARD_URL=https://sentinel-ads-ssk.vercel.app
+VITE_DASHBOARD_URL=https://mp-p-answer-custom-dashboard.vercel.app
 npm run build:extension
 ```
 
